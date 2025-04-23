@@ -20,6 +20,9 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: 🔓 Grant execute permission to gradlew
+        run: chmod +x ./gradlew
+
       - name: 🔍 application-test.yml 체크 중...
         run: |
           echo "🔍 application-test.yml 체크 중..."
