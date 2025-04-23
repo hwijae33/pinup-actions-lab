@@ -1,4 +1,4 @@
-name: CI - Gradle Build
+name: Run Tests (CI)
 
 on:
   push:
@@ -7,11 +7,11 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source code
+      - name: Checkout
         uses: actions/checkout@v3
 
       - name: Set up JDK 17
@@ -20,8 +20,20 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+      # ✅ application-test.yml 존재 확인 (디버깅용)
+      - name: Check application-test.yml existence
+        run: |
+          echo "🔍 application-test.yml 체크 중..."
+          ls -al .
+          ls -al src/main/resources || true
+          ls -al src/test/resources || true
+          if [ -f application-test.yml ]; then
+            echo "✅ application-test.yml 파일이 존재합니다."
+            cat application-test.yml
+          else
+            echo "❌ application-test.yml 파일이 없습니다."
+            exit 1
+          fi
 
-      - name: Build with Gradle
-        run: ./gradlew clean build
+      - name: Run Gradle tests
+        run: ./gradlew clean test
