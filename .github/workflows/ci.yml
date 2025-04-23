@@ -11,31 +11,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: 📥 Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up JDK 17
+      - name: ☕ Set up JDK 17
         uses: actions/setup-java@v3
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      # ✅ application-test.yml 존재 확인 (디버깅용)
-      - name: Check application-test.yml existence
+      - name: 🔍 application-test.yml 체크 중...
         run: |
           echo "🔍 application-test.yml 체크 중..."
-          ls -al .
-          ls -al src/main/resources || true
-          ls -al src/test/resources || true
-          if [ -f application-test.yml ]; then
-            echo "✅ application-test.yml 파일이 존재합니다."
-            cat application-test.yml
+          if [ -f src/main/resources/application-test.yml ]; then
+            echo "✅ application-test.yml 존재함"
           else
             echo "❌ application-test.yml 파일이 없습니다."
             exit 1
           fi
 
-      - name: Run Gradle tests
+      - name: ✅ Run Gradle tests
         run: ./gradlew clean test
         env:
-          SPRING_CONFIG_LOCATION: src/main/resources/application-test.yml
+          SPRING_PROFILES_ACTIVE: test
+          SPRING_CONFIG_LOCATION: file:src/main/resources/application-test.yml
