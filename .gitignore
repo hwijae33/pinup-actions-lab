@@ -38,7 +38,7 @@ out/
 
 ### Application YAML ###
 *.yml
-!application-test.yml
+!src/test/resources/application-test.yml
 ### MAC OS ###
 .DS_Store
 
