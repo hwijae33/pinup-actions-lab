@@ -48,6 +48,19 @@ jobs:
             exit 1
           fi
 
+      - name: 🕒 Wait for LocalStack to be ready
+        run: |
+          echo "Waiting for LocalStack..."
+          for i in {1..10}; do
+            if curl -s http://localhost:4566/_localstack/health | grep "\"s3\": \"running\"" > /dev/null; then
+              echo "✅ LocalStack is ready!"
+              break
+            else
+              echo "⏳ LocalStack not ready, retrying in 3s..."
+              sleep 3
+            fi
+          done
+
       - name: ✅ Run Gradle tests
         run: ./gradlew clean test
         env:
