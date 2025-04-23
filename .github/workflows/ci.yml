@@ -37,3 +37,5 @@ jobs:
 
       - name: Run Gradle tests
         run: ./gradlew clean test
+        env:
+          SPRING_CONFIG_LOCATION: src/main/resources/application-test.yml
