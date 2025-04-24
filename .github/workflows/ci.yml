@@ -47,10 +47,10 @@ jobs:
             echo "❌ application-test.yml 파일이 없습니다."
             exit 1
           fi
-      - name: 🧪 Test connectivity to LocalStack S3
+      - name: 🧪 Test connectivity to LocalStack (localhost)
         run: |
-          echo "Trying to connect to localstack:4566..."
-          nc -vz localstack 4566 || { echo "❌ Cannot connect to localstack:4566"; exit 1; }
+          echo "Trying to connect to localhost:4566..."
+          curl -s http://localhost:4566/_localstack/health || { echo "❌ Cannot reach LocalStack via localhost"; exit 1; }
 
       - name: 🕒 Wait until LocalStack S3 is ready
         run: |
