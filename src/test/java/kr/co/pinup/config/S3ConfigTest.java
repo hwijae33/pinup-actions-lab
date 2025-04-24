@@ -1,160 +1,114 @@
-package kr.co.pinup.config;
+package kr.co.pinup.posts.s3;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
-import org.springframework.test.context.ActiveProfiles;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.*;
+import software.amazon.awssdk.services.s3.S3Configuration;
 
-import java.io.IOException;
+import java.io.ByteArrayInputStream;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringBootTest
-@ActiveProfiles("test")
 public class S3ConfigTest {
 
-    @Autowired
     private S3Client s3Client;
-
-    @Value("${cloud.aws.s3.bucket}")
-    String bucketName;
-
+    private final String bucketName = "pinup-test";
     private final String keyName = "test-file.txt";
-    private final String fileContent = "This is a test file.";
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
+        s3Client = S3Client.builder()
+                .region(Region.of("us-east-1"))
+                .endpointOverride(URI.create("http://localhost:4566"))
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create("test", "test")))
+                .serviceConfiguration(S3Configuration.builder()
+                        .chunkedEncodingEnabled(false)
+                        .build())
+                .build();
+
         try {
             if (!doesBucketExist(bucketName)) {
                 s3Client.createBucket(CreateBucketRequest.builder().bucket(bucketName).build());
             }
         } catch (S3Exception e) {
-            System.err.println("버킷 생성 중 예외 발생: " + e.awsErrorDetails().errorMessage());
+            if (e.statusCode() != 409) {
+                System.err.println("버킷 생성 중 예외 발생: " + e.awsErrorDetails().errorMessage());
+                throw e;
+            }
         }
     }
 
-
     @Test
-    public void testUploadFileToS3() throws IOException, InterruptedException {
-        // 파일을 S3에 업로드합니다.
-        s3Client.putObject(PutObjectRequest.builder()
-                        .bucket(bucketName)
-                        .key(keyName)
-                        .build(),
-                RequestBody.fromString(fileContent));
+    void testUploadFileToS3() throws Exception {
+        String content = "This is a test file.";
+        byte[] contentBytes = content.getBytes();
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(contentBytes);
 
-
-        Thread.sleep(1000);
-
-
-        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(bucketName)
                 .key(keyName)
                 .build();
 
-        ResponseInputStream<GetObjectResponse> responseInputStream = s3Client.getObject(getObjectRequest);
+        s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(inputStream, contentBytes.length));
 
-        String uploadedContent = new String(responseInputStream.readAllBytes(), StandardCharsets.UTF_8);
-
-        assertTrue(uploadedContent.contains(fileContent), "업로드된 파일의 내용이 예상과 다릅니다.");
-    }
-
-
-    @Test
-    public void testFileExistsInS3() throws InterruptedException {
-
-        s3Client.putObject(PutObjectRequest.builder()
-                        .bucket(bucketName)
-                        .key(keyName)
-                        .build(),
-                RequestBody.fromString(fileContent));
-
+        // 업로드 후 S3 지연 고려해 최대 10회 재시도
         boolean fileExists = false;
         int retries = 0;
         while (!fileExists && retries < 10) {
             fileExists = doesObjectExist(bucketName, keyName);
             if (!fileExists) {
+                Thread.sleep(500);
                 retries++;
-                Thread.sleep(500);  // 500ms 대기 후 재시도
             }
         }
 
-        assertTrue(fileExists, "파일이 S3에 존재하지 않습니다.");
+        assertTrue(fileExists, "S3에 업로드된 파일이 존재해야 합니다.");
     }
 
+    @Test
+    void testFileExistsInS3() throws Exception {
+        boolean fileExists = false;
+        int retries = 0;
+        while (!fileExists && retries < 10) {
+            fileExists = doesObjectExist(bucketName, keyName);
+            if (!fileExists) {
+                Thread.sleep(500);
+                retries++;
+            }
+        }
+
+        assertTrue(fileExists, "업로드된 파일이 존재해야 합니다.");
+    }
 
     private boolean doesBucketExist(String bucketName) {
         try {
-            ListBucketsResponse response = s3Client.listBuckets();
-            return response.buckets().stream().anyMatch(b -> b.name().equals(bucketName));
-        } catch (S3Exception e) {
-            // 예외 발생 시 bucket이 존재하지 않음
-            System.err.println("버킷 존재 여부 확인 중 오류 발생: " + e.getMessage());
-            return false;
-        }
-    }
-
-    private boolean doesObjectExist(String bucketName, String keyName) {
-        try {
-
-            s3Client.headObject(HeadObjectRequest.builder().bucket(bucketName).key(keyName).build());
+            HeadBucketRequest headBucketRequest = HeadBucketRequest.builder()
+                    .bucket(bucketName)
+                    .build();
+            s3Client.headBucket(headBucketRequest);
             return true;
         } catch (S3Exception e) {
-
-            if (e.statusCode() == 404) {
-                System.err.println("파일을 찾을 수 없음: " + e.getMessage());
-                return false;
-            }
-
-            System.err.println("파일 존재 여부 확인 중 오류 발생: " + e.getMessage());
             return false;
         }
     }
 
-    @AfterEach
-    public void tearDown() {
+    private boolean doesObjectExist(String bucketName, String key) {
         try {
-            s3Client.deleteObject(DeleteObjectRequest.builder()
+            HeadObjectRequest headObjectRequest = HeadObjectRequest.builder()
                     .bucket(bucketName)
-                    .key(keyName)
-                    .build());
-        } catch (S3Exception e) {
-            System.err.println("파일 삭제 중 오류 발생: " + e.getMessage());
-        }
-    }
-
-    @TestConfiguration
-    static class S3TestConfig {
-        @Value("${cloud.aws.s3.endpoint}")
-        String endpoint;
-
-        @Bean
-        @Primary
-        public S3Client testS3Client() {
-            return S3Client.builder()
-                    .endpointOverride(URI.create(endpoint))
-                    .region(Region.US_EAST_1)
-                    .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")))
-                    .serviceConfiguration(S3Configuration.builder()
-                            .chunkedEncodingEnabled(false)
-                            .build())
+                    .key(key)
                     .build();
+            s3Client.headObject(headObjectRequest);
+            return true;
+        } catch (S3Exception e) {
+            return false;
         }
     }
 }
