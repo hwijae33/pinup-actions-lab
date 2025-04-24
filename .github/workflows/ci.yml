@@ -65,13 +65,19 @@ jobs:
         run: |
           aws --endpoint-url=http://localhost:4566 s3 mb s3://pinup-test || echo "Bucket already exists"
 
-      - name: Wait until bucket is ready
+      - name: Wait until S3 bucket is ready
         run: |
-          until aws --endpoint-url=http://localhost:4566 s3 ls s3://pinup-test; do
+          for i in {1..10}; do
+            if aws --endpoint-url=http://localhost:4566 s3 ls s3://pinup-test; then
+              echo "Bucket is ready"
+              break
+            fi
             echo "Waiting for pinup-test bucket..."
-            sleep 1
+            sleep 2
           done
 
+      - name: Extra wait for S3 readiness (localstack delay workaround)
+        run: sleep 5
       - name: ✅ Run Gradle tests
         run: ./gradlew clean test
 
