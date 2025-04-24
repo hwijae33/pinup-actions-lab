@@ -40,11 +40,15 @@ public class S3ConfigTest {
 
     @BeforeEach
     public void setUp() {
-        // LocalStack에서 S3 버킷을 생성
-        if (!doesBucketExist(bucketName)) {
-            s3Client.createBucket(CreateBucketRequest.builder().bucket(bucketName).build());
+        try {
+            if (!doesBucketExist(bucketName)) {
+                s3Client.createBucket(CreateBucketRequest.builder().bucket(bucketName).build());
+            }
+        } catch (S3Exception e) {
+            System.err.println("버킷 생성 중 예외 발생: " + e.awsErrorDetails().errorMessage());
         }
     }
+
 
     @Test
     public void testUploadFileToS3() throws IOException, InterruptedException {

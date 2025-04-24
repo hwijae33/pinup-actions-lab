@@ -10,18 +10,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    env:
-      AWS_ACCESS_KEY_ID: test
-      AWS_SECRET_ACCESS_KEY: test
-      AWS_REGION: us-east-1
-      AWS_CBOR_DISABLE: true
-      AWS_RETRY_MODE: standard
-      AWS_MAX_ATTEMPTS: 3
-      AWS_S3_DISABLE_MULTIREGION_ACCESS_POINTS: true
-      AWS_SDK_S3_FORCE_PATH_STYLE: true
-      AWS_SDK_EC2_METADATA_DISABLED: true
-      JAVA_TOOL_OPTIONS: "-Daws.chunkedEncodingDisabled=true -Dcom.amazonaws.sdk.disableCertChecking=true"
-
     services:
       localstack:
         image: localstack/localstack:latest
@@ -36,6 +24,19 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
+
+    env:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_REGION: us-east-1
+      AWS_CBOR_DISABLE: true
+      AWS_RETRY_MODE: standard
+      AWS_MAX_ATTEMPTS: 3
+      AWS_S3_DISABLE_MULTIREGION_ACCESS_POINTS: true
+      AWS_SDK_S3_FORCE_PATH_STYLE: true
+      AWS_SDK_EC2_METADATA_DISABLED: true
+      JAVA_TOOL_OPTIONS: "-Daws.chunkedEncodingDisabled=true -Dcom.amazonaws.sdk.disableCertChecking=true"
+
 
     steps:
       - name: 📥 Checkout repository
@@ -62,6 +63,7 @@ jobs:
 
       - name: 📦 Create S3 bucket in LocalStack
         run: aws --endpoint-url=http://localhost:4566 s3 mb s3://pinup-test
+             sleep 2
 
       - name: ✅ Run Gradle tests
         run: ./gradlew clean test
