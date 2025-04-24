@@ -21,12 +21,15 @@ public class S3ClientConfig {
     @Primary
     public S3Client testS3Client() {
         return S3Client.builder()
-                .region(Region.of("us-east-1"))
-                .endpointOverride(URI.create("http://localhost:4566"))
-                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")))
+                .endpointOverride(URI.create(endpoint))
+                .region(Region.US_EAST_1)
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create("test", "test")))
                 .serviceConfiguration(S3Configuration.builder()
                         .chunkedEncodingEnabled(false)
+                        .pathStyleAccessEnabled(true)
                         .build())
                 .build();
     }
+
 }
