@@ -29,60 +29,24 @@ jobs:
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
       AWS_REGION: us-east-1
-      AWS_CBOR_DISABLE: true
-      AWS_RETRY_MODE: standard
-      AWS_MAX_ATTEMPTS: 3
-      AWS_S3_DISABLE_MULTIREGION_ACCESS_POINTS: true
-      AWS_SDK_S3_FORCE_PATH_STYLE: true
-      AWS_SDK_EC2_METADATA_DISABLED: true
-      JAVA_TOOL_OPTIONS: "-Daws.chunkedEncodingDisabled=true -Dcom.amazonaws.sdk.disableCertChecking=true"
-
+      AWS_S3_BUCKET_NAME: pinup-test
+      JAVA_TOOL_OPTIONS: >-
+        -Daws.chunkedEncodingDisabled=true
+        -Dcom.amazonaws.sdk.disableCertChecking=true
 
     steps:
-      - name: 📥 Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: ☕ Set up JDK 17
+      - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: 🔓 Grant execute permission to gradlew
-        run: chmod +x ./gradlew
+      - name: Grant execute permission for Gradle
+        run: chmod +x gradlew
 
-      - name: 🔍 application-test.yml 체크 중...
-        run: |
-          echo "🔍 application-test.yml 체크 중..."
-          if [ -f src/test/resources/application-test.yml ]; then
-            echo "✅ application-test.yml 존재함"
-          else
-            echo "❌ application-test.yml 파일이 없습니다."
-            exit 1
-          fi
-
-      - name: 📦 Create S3 bucket in LocalStack
-        run: |
-          aws --endpoint-url=http://localhost:4566 s3 mb s3://pinup-test || echo "Bucket already exists"
-
-      - name: Wait until S3 bucket is ready + test upload
-        run: |
-          for i in {1..10}; do
-            if aws --endpoint-url=http://localhost:4566 s3 ls s3://pinup-test; then
-              echo "✅ Bucket found, testing upload..."
-              echo "test file" > test.txt
-              if aws --endpoint-url=http://localhost:4566 s3 cp test.txt s3://pinup-test/test.txt; then
-                echo "✅ Upload succeeded"
-                break
-              fi
-            fi
-            echo "⏳ Waiting for pinup-test bucket to become fully available..."
-            sleep 3
-          done
-      
-
-      - name: Extra wait for S3 readiness (localstack delay workaround)
-        run: sleep 5
-      - name: ✅ Run Gradle tests
+      - name: Run tests
         run: ./gradlew clean test
 
