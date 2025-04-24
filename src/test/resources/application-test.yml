@@ -77,6 +77,7 @@ cloud:
     s3:
       bucket: pinup-test
       endpoint: http://localhost:4566  # LocalStack의 S3 엔드포인트 주소
+      path-style-access-enabled: true
     region.static: us-east-1
     stack.auto: false
     credentials:
