@@ -62,8 +62,14 @@ jobs:
           fi
 
       - name: 📦 Create S3 bucket in LocalStack
-        run: aws --endpoint-url=http://localhost:4566 s3 mb s3://pinup-test
-             sleep 2
+        run: |
+          aws --endpoint-url=http://localhost:4566 s3 mb s3://pinup-test || echo "Bucket already exists"
+          sleep 2
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
+
 
       - name: ✅ Run Gradle tests
         run: ./gradlew clean test
