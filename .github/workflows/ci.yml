@@ -48,25 +48,26 @@ jobs:
             exit 1
           fi
 
+      - name: 🕒 Wait until LocalStack S3 is ready
+        run: |
+          echo "Waiting for LocalStack..."
+          for i in {1..15}; do
+            if curl -s http://localstack:4566/_localstack/health | grep '"s3": "running"' > /dev/null; then
+              echo "✅ LocalStack S3 is running!"
+              break
+            else
+              echo "⏳ Waiting for LocalStack S3... ($i/15)"
+              sleep 3
+            fi
+          done
+
       - name: 📦 Create S3 bucket in LocalStack
         run: |
           aws --endpoint-url=http://localstack:4566 s3 mb s3://pinup-test
         env:
           AWS_ACCESS_KEY_ID: test
           AWS_SECRET_ACCESS_KEY: test
-
-      - name: 🕒 Wait for LocalStack to be ready
-        run: |
-          echo "Waiting for LocalStack..."
-          for i in {1..10}; do
-            if curl -s http://localhost:4566/_localstack/health | grep "\"s3\": \"running\"" > /dev/null; then
-              echo "✅ LocalStack is ready!"
-              break
-            else
-              echo "⏳ LocalStack not ready, retrying in 3s..."
-              sleep 3
-            fi
-          done
+          AWS_DEFAULT_REGION: us-east-1
 
       - name: ✅ Run Gradle tests
         run: ./gradlew clean test
