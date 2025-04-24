@@ -65,16 +65,21 @@ jobs:
         run: |
           aws --endpoint-url=http://localhost:4566 s3 mb s3://pinup-test || echo "Bucket already exists"
 
-      - name: Wait until S3 bucket is ready
+      - name: Wait until S3 bucket is ready + test upload
         run: |
           for i in {1..10}; do
             if aws --endpoint-url=http://localhost:4566 s3 ls s3://pinup-test; then
-              echo "Bucket is ready"
-              break
+              echo "✅ Bucket found, testing upload..."
+              echo "test file" > test.txt
+              if aws --endpoint-url=http://localhost:4566 s3 cp test.txt s3://pinup-test/test.txt; then
+                echo "✅ Upload succeeded"
+                break
+              fi
             fi
-            echo "Waiting for pinup-test bucket..."
-            sleep 2
+            echo "⏳ Waiting for pinup-test bucket to become fully available..."
+            sleep 3
           done
+      
 
       - name: Extra wait for S3 readiness (localstack delay workaround)
         run: sleep 5
