@@ -142,6 +142,7 @@ jobs:
             pinup0106/pinup:${{ env.SHA_TAG }}
             pinup0106/pinup:${{ env.DATE_TAG }}
 
+
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
