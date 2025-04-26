@@ -23,7 +23,7 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Build project and generate docs
-        run: ./gradlew clean build -x test
+        run: ./gradlew clean build
 
       - name: Copy generated docs to /docs
         run: |
