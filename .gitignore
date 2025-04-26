@@ -53,4 +53,4 @@ node_modules
 
 !.github/
 !.github/workflows/
-!.github/workflows/ci.yml
+!.github/workflows/*
