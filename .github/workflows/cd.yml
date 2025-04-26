@@ -34,10 +34,19 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Extract Git metadata
+        id: vars
+        run: |
+          echo "SHA_TAG=sha-$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          echo "DATE_TAG=build-$(date +%Y%m%d)" >> $GITHUB_ENV
+
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: pinup0106/pinup:latest
+          tags: |
+            pinup0106/pinup:latest
+            pinup0106/pinup:${{ env.SHA_TAG }}
+            pinup0106/pinup:${{ env.DATE_TAG }}
