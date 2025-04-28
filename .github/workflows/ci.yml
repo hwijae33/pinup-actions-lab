@@ -41,9 +41,7 @@ jobs:
       - name: Create application-test.yml from GitHub Secret (cat 방식)
         run: |
           mkdir -p src/test/resources
-          cat <<EOF > src/test/resources/application-test.yml
-      ${{ secrets.APPLICATION_TEST_YML }}
-      EOF
+          cat <<EOF > src/test/resources/application-test.yml${{ secrets.APPLICATION_TEST_YML }}EOF
 
       - name: Set up JDK
         uses: actions/setup-java@v3
