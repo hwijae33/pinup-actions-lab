@@ -41,7 +41,7 @@ jobs:
       - name: Create application-test.yml from GitHub Secret
         run: |
           mkdir -p src/test/resources
-          cat <<EOF > src/test/resources/application-test.yml${{ secrets.APPLICATION_TEST_YML }}EOF
+          echo "${{ secrets.APPLICATION_TEST_YML }}" | base64 --decode > src/test/resources/application-test.yml
 
       - name: Set up JDK
         uses: actions/setup-java@v3
