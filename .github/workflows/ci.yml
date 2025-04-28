@@ -35,18 +35,24 @@ jobs:
         -Dcom.amazonaws.sdk.disableCertChecking=true
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up JDK 17
+      - name: Create application-test.yml from GitHub Secret (cat 방식)
+        run: |
+          mkdir -p src/test/resources
+          cat <<EOF > src/test/resources/application-test.yml
+${{ secrets.APPLICATION_TEST_YML }}
+EOF
+
+      - name: Set up JDK
         uses: actions/setup-java@v3
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Grant execute permission for Gradle
-        run: chmod +x gradlew
+      - name: Grant execute permission for Gradle Wrapper
+        run: chmod +x ./gradlew
 
-      - name: Run tests
+      - name: Run Tests
         run: ./gradlew clean test
-

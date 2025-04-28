@@ -55,6 +55,7 @@
 ![API Preview](https://github.com/user-attachments/assets/03ba88f6-59a1-4938-8f5d-38c0adee31c4)
 
 **Spring REST Docs 문서**
+[🔗Docs 문서](https://hwijae33.github.io/pinup-actions-lab/)
 ![API Preview]( https://hwijae33.github.io/pinup-actions-lab/)
 
 **ERD**  
