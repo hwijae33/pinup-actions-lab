@@ -42,8 +42,8 @@ jobs:
         run: |
           mkdir -p src/test/resources
           cat <<EOF > src/test/resources/application-test.yml
-${{ secrets.APPLICATION_TEST_YML }}
-EOF
+      ${{ secrets.APPLICATION_TEST_YML }}
+      EOF
 
       - name: Set up JDK
         uses: actions/setup-java@v3
