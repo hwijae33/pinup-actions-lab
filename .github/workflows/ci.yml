@@ -38,7 +38,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Create application-test.yml from GitHub Secret (cat 방식)
+      - name: Create application-test.yml from GitHub Secret
         run: |
           mkdir -p src/test/resources
           cat <<EOF > src/test/resources/application-test.yml${{ secrets.APPLICATION_TEST_YML }}EOF
