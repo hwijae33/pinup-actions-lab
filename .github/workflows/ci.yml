@@ -69,9 +69,6 @@ jobs:
           echo "## ❌ 실패한 테스트 목록" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # 테스트 로그 추출
-#          ./gradlew test --console=plain --no-daemon > test-log.txt || true
-
           # 실패 테스트 줄만 필터링 (FAILED만 포함, 뒤에 줄 제거)
           grep "FAILED" test-log.txt | grep " > " | while read -r line; do
             echo "- ❌ ${line}" >> $GITHUB_STEP_SUMMARY
