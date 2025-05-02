@@ -54,3 +54,17 @@ jobs:
 
       - name: Run Tests
         run: ./gradlew clean test
+
+      - name: 💬 PR Comment (Test Result)
+        if: always()
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: test-result
+          message: |
+            ${{ job.status == 'success' && '✅ 테스트 통과!' || '❌ 테스트 실패! 로그 확인 필요.' }}
+
+      - name: 📝 Write to Checks Summary (if failed)
+        if: failure()
+        run: |
+          echo "## ❌ 테스트 실패" >> $GITHUB_STEP_SUMMARY
+          echo "- 자세한 로그는 'Actions' 탭에서 확인하세요." >> $GITHUB_STEP_SUMMARY  
