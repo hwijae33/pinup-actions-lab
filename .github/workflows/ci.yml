@@ -63,8 +63,34 @@ jobs:
           message: |
             ${{ job.status == 'success' && '✅ 테스트 통과!' || '❌ 테스트 실패! 로그 확인 필요.' }}
 
-      - name: 📝 Write to Checks Summary (if failed)
+      - name: 📄 실패 테스트 요약 (최대 1MB 내에서 출력)
         if: failure()
         run: |
-          echo "## ❌ 테스트 실패" >> $GITHUB_STEP_SUMMARY
-          echo "- 자세한 로그는 'Actions' 탭에서 확인하세요." >> $GITHUB_STEP_SUMMARY  
+          echo "## ❌ 실패한 테스트 요약" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 클래스 | 테스트 메서드 | 에러 메시지 |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|----------------|--------------|" >> $GITHUB_STEP_SUMMARY
+
+          max_size=1048576  # 약 1MB
+          current_size=0
+
+          grep -r '<testcase .*<failure' build/test-results/test/ | while read -r line; do
+            class=$(echo "$line" | sed -n 's/.*classname="\([^"]*\)".*/\1/p')
+            name=$(echo "$line" | sed -n 's/.*name="\([^"]*\)".*/\1/p')
+            message=$(echo "$line" | sed -n 's/.*<failure message="\([^"]*\)".*/\1/p' | cut -c1-50)
+
+            row="| $class | $name | $message... |"
+            row_size=$(echo "$row" | wc -c)
+
+            if [ $((current_size + row_size)) -lt $max_size ]; then
+              echo "$row" >> $GITHUB_STEP_SUMMARY
+              current_size=$((current_size + row_size))
+            else
+              echo "| ... | ... | (더 많은 실패가 생략되었습니다) |" >> $GITHUB_STEP_SUMMARY
+              break
+            fi
+          done
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "_자세한 로그는 'Actions > Run logs' 또는 HTML 리포트를 확인하세요._" >> $GITHUB_STEP_SUMMARY
+      
