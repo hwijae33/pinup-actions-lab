@@ -63,19 +63,18 @@ jobs:
           message: |
             ${{ job.status == 'success' && '✅ 테스트 통과!' || '❌ 테스트 실패! 로그 확인 필요.' }}
 
-      - name: 📄 실패 테스트 요약 (단순 grep 기반)
+      - name: 📄 실패 테스트 한 줄 요약 (stdout 기반)
         if: failure()
         run: |
-          echo "## ❌ 실패한 테스트 요약" >> $GITHUB_STEP_SUMMARY
+          echo "## ❌ 실패한 테스트 목록" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| 원본 라인 (grep 결과) |" >> $GITHUB_STEP_SUMMARY
-          echo "|------------------------|" >> $GITHUB_STEP_SUMMARY
 
-          cat build/test-results/test/TEST-*.xml > merged.xml
+          # 로그 추출
+          ./gradlew test --console=plain --no-daemon > test-log.txt || true
 
-          grep -B 1 '<failure' merged.xml | while read -r line; do
-            echo "| $(echo "$line" | cut -c1-100)... |" >> $GITHUB_STEP_SUMMARY
-          done
+          # 테스트 실패 요약 추출
+          grep -A1 "FAILED" test-log.txt | grep -E "FAILED|at" | \
+            sed 's/^/    /' >> $GITHUB_STEP_SUMMARY
 
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "_자세한 로그는 Actions > Run logs 또는 HTML 리포트를 확인하세요._" >> $GITHUB_STEP_SUMMARY
+          echo "_자세한 내용은 'Actions > Run logs' 또는 HTML 리포트를 확인하세요._" >> $GITHUB_STEP_SUMMARY
