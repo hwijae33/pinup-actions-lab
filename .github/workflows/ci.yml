@@ -69,15 +69,14 @@ jobs:
           echo "## ❌ 실패한 테스트 목록" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # 실패 항목 추출
-          FAILURES=$(grep "FAILED" test-log.txt | grep " > ")
-          COUNT=$(echo "$FAILURES" | wc -l)
+          # 실패한 테스트 줄 추출 → 리스트 + 개수
+          FAILURE_LINES=$(grep "FAILED" test-log.txt | grep " > ")
+          COUNT=$(echo "$FAILURE_LINES" | grep -c " > ")
 
-          # 목록 출력
-          echo "$FAILURES" | while read -r line; do
+          echo "$FAILURE_LINES" | while read -r line; do
             echo "- ❌ ${line}" >> $GITHUB_STEP_SUMMARY
           done
 
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**총 실패 테스트 수:** $COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "**총 실패 테스트 수: $COUNT개**" >> $GITHUB_STEP_SUMMARY
           echo "_자세한 내용은 'Actions > Run logs' 또는 HTML 리포트를 확인하세요._" >> $GITHUB_STEP_SUMMARY
