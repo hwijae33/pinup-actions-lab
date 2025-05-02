@@ -52,8 +52,8 @@ jobs:
       - name: Grant execute permission for Gradle Wrapper
         run: chmod +x ./gradlew
 
-      - name: Run Tests and Save Log
-        run: ./gradlew clean test --console=plain --no-daemon | tee test-log.txt
+      - name: Run Tests
+        run: ./gradlew clean test
 
       - name: 💬 PR Comment (Test Result)
         if: always()
@@ -63,21 +63,19 @@ jobs:
           message: |
             ${{ job.status == 'success' && '✅ 테스트 통과!' || '❌ 테스트 실패! 로그 확인 필요.' }}
 
-      - name: 📄 실패 테스트 한 줄 요약 + 개수 출력
+      - name: 📄 실패 테스트 한 줄 요약 (가독성 개선)
         if: failure()
         run: |
           echo "## ❌ 실패한 테스트 목록" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # 실패 항목 추출
-          FAILURES=$(grep "FAILED" test-log.txt | grep " > ")
-          COUNT=$(echo "$FAILURES" | wc -l)
+          # 테스트 로그 추출
+          ./gradlew test --console=plain --no-daemon > test-log.txt || true
 
-          # 목록 출력
-          echo "$FAILURES" | while read -r line; do
+          # 실패 테스트 줄만 필터링 (FAILED만 포함, 뒤에 줄 제거)
+          grep "FAILED" test-log.txt | grep " > " | while read -r line; do
             echo "- ❌ ${line}" >> $GITHUB_STEP_SUMMARY
           done
 
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**총 실패 테스트 수:** $COUNT" >> $GITHUB_STEP_SUMMARY
           echo "_자세한 내용은 'Actions > Run logs' 또는 HTML 리포트를 확인하세요._" >> $GITHUB_STEP_SUMMARY
