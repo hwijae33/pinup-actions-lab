@@ -75,6 +75,12 @@ dependencies {
 	testImplementation 'org.springframework.restdocs:spring-restdocs-core:3.0.3' // 👈 명시적으로 추가!
 	asciidoctorExt 'org.springframework.restdocs:spring-restdocs-asciidoctor:3.0.3'
 
+	// secretsmanager
+	implementation 'software.amazon.awssdk:secretsmanager:2.20.15'
+	implementation 'software.amazon.awssdk:auth:2.20.15'
+	implementation 'software.amazon.awssdk:regions:2.20.15'
+	implementation 'com.fasterxml.jackson.core:jackson-databind' // JSON 파싱용
+
 }
 ext {
 	snippetsDir = file('build/generated-snippets')  // REST Docs 스니펫 생성 위치 설정
@@ -92,7 +98,7 @@ tasks.named('test') {
 	exclude '**/MockSecurityContextTest.class'
 	exclude '**/GoogleOAuthTest.class'
 	exclude '**/NaverOAuthTest.class'
-	exclude '**/SecurityUtilTest.class'
+//	exclude '**/SecurityUtilTest.class'
 }
 
 node {
