@@ -54,7 +54,9 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run tests
-        run: ./gradlew clean test
+        run: |
+          set -o pipefail
+          ./gradlew clean test --console=plain --no-daemon | tee test-log.txt
 
       - name: 💬 PR Comment (Test Result)
         if: always()
@@ -64,11 +66,27 @@ jobs:
           message: |
             ${{ job.status == 'success' && '✅ 테스트 통과!' || '❌ 테스트 실패! 로그 확인 필요.' }}
 
-      - name: 📝 Write to Checks Summary (if failed)
+      - name: 📄 실패 테스트 한 줄 요약
         if: failure()
         run: |
-          echo "## ❌ 테스트 실패" >> $GITHUB_STEP_SUMMARY
-          echo "- 자세한 로그는 'Actions' 탭에서 확인하세요." >> $GITHUB_STEP_SUMMARY  
+          echo "## ❌ 실패한 테스트 목록" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # 실패 줄 추출
+          FAILED_LINES=$(grep "FAILED" test-log.txt | grep " > " || true)
+          COUNT=$(echo "$FAILED_LINES" | grep -c '^' || echo 0)
+
+          # 실패 수 표시
+          echo "- 총 실패 테스트 수: **${COUNT}개**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # 목록 출력
+          echo "$FAILED_LINES" | while read -r line; do
+            echo "- ❌ ${line}" >> $GITHUB_STEP_SUMMARY
+          done
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "_자세한 내용은 'Actions > Run logs' 를 확인하세요._" >> $GITHUB_STEP_SUMMARY
 
   build:
     if: github.event_name == 'push'

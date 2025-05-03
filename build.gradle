@@ -97,7 +97,7 @@ tasks.named('test') {
 	exclude '**/MemberControllerTest.class'
 	exclude '**/MockSecurityContextTest.class'
 	exclude '**/GoogleOAuthTest.class'
-	exclude '**/NaverOAuthTest.class'
+//	exclude '**/NaverOAuthTest.class'
 //	exclude '**/SecurityUtilTest.class'
 }
 
