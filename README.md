@@ -54,9 +54,8 @@
 [🔗API 문서](https://docs.google.com/spreadsheets/d/1b24N2W1LtkkmANf4k0S2cyUUmNKDhFQ5dWEvl_6xXKY/edit?usp=sharing)
 ![API Preview](https://github.com/user-attachments/assets/03ba88f6-59a1-4938-8f5d-38c0adee31c4)
 
-**Spring REST Docs 문서**
-[🔗Docs 문서](https://hwijae33.github.io/pinup-actions-lab/)
-![API Preview]( https://hwijae33.github.io/pinup-actions-lab/)
+**Spring REST Docs 문서**  
+[🔗Docs 문서](https://hwijae33.github.io/pinup-actions-lab)
 
 **ERD**  
 [🔗ERD Cloud](https://www.erdcloud.com/d/ZBjzfrDw49fGojDaC)

@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <conversionRule conversionWord="clr" converterClass="org.springframework.boot.logging.logback.ColorConverter" />
+
+    <property name="CONSOLE_LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %clr(%-5level) %cyan(%logger) - %msg%n" />
+
+    <property name="FILE_LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %clr(%-5level) %cyan(%logger) - %msg%n" />
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_FILE}</file>
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+        </encoder>
+        <!-- RollingPolicy: 로그가 길어지면 가독성이 떨어지므로 로그를 나눠서 기록하기 위한 규칙 -->
+        <!-- 로그 파일을 크기, 시간 기반으로 관리하기 위한 SizeAndTimeBasedRollingPolicy -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <!-- 로그 파일명 패턴 -->
+            <!-- 날짜별로 기록되며 maxFileSize를 넘기면 인덱스(i)를 증가시켜 새로운 이름의 로그 파일에 기록을 이어간다 -->
+            <fileNamePattern>${LOG_FILE_PATTERN}</fileNamePattern>
+            <!-- 생성한 로그 파일 관리 일수 -->
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <!--      TODO : log json formatter output (7월에 반영) -->
+        <!--        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">-->
+        <!--            <providers>-->
+        <!--                <timestamp>-->
+        <!--                    <fieldName>timestamp</fieldName>-->
+        <!--                </timestamp>-->
+        <!--                <logLevel />-->
+        <!--                <loggerName />-->
+        <!--                <threadName />-->
+        <!--                <message />-->
+        <!--                <arguments />-->
+        <!--                <mdc />-->
+        <!--                <stackTrace />-->
+        <!--            </providers>-->
+        <!--        </encoder>-->
+    </appender>
+
+    <appender name="CLOUDWATCH" class="ca.pjer.logback.awslogs.AwsLogsAppender">
+        <logGroupName>pinup-actions-log-group</logGroupName>
+        <logStreamName>app-stream</logStreamName>
+        <region>us-east-1</region>
+        <accessKey>test</accessKey>
+        <secretKey>test</secretKey>
+        <endpoint>http://127.0.0.1:4566</endpoint> <!-- LocalStack용 -->
+        <layout class="ch.qos.logback.classic.PatternLayout">
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger - %msg%n</pattern>
+        </layout>
+    </appender>
+
+    <!-- local 환경일 때 -->
+    <springProfile name="local">
+        <property name="LOG_FILE" value="logs/app.log"/>
+        <property name="LOG_FILE_PATTERN" value="logs/app-%d{yyyy-MM-dd}.%i.log"/>
+        <root level="INFO">
+            <appender-ref ref="CONSOLE" />
+            <appender-ref ref="FILE" />
+        </root>
+    </springProfile>
+
+    <!-- prod 환경일 때 -->
+    <springProfile name="prod">
+        <property name="LOG_FILE" value="/home/ec2-user/logs/app.log"/>
+        <property name="LOG_FILE_PATTERN" value="/home/ec2-user/logs/app-%d{yyyy-MM-dd}.%i.log"/>
+        <root level="INFO">
+            <appender-ref ref="CONSOLE" />
+            <appender-ref ref="FILE" />
+            <appender-ref ref="CLOUDWATCH" />
+        </root>
+    </springProfile>
+
+    <!-- additivity: 부모 로거로 로그를 전파하지 않는다 -->
+    <!-- 이 로거(package)에 지정된 Appender만 사용하고, 루트 로거(root)가 가진 STDOUT 콘솔 Appender는 절대 사용하지 않는다 -->
+    <logger name="org.hibernate.SQL" level="OFF" additivity="false">
+        <appender-ref ref="CONSOLE" />
+    </logger>
+
+    <logger name="org.hibernate.type" level="OFF" additivity="false">
+        <appender-ref ref="CONSOLE" />
+    </logger>
+
+    <logger name="org.hibernate.type.descriptor.sql" level="OFF" additivity="false">
+        <appender-ref ref="CONSOLE" />
+    </logger>
+</configuration>

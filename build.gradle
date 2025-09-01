@@ -14,7 +14,9 @@ java {
 		languageVersion = JavaLanguageVersion.of(17)
 	}
 }
-
+bootRun {
+	classpath = sourceSets.main.runtimeClasspath
+}
 configurations {
 	compileOnly {
 		extendsFrom annotationProcessor
@@ -24,6 +26,8 @@ configurations {
 
 repositories {
 	mavenCentral()
+	maven { url "https://jitpack.io" } // 혹시 필요한 경우
+	maven { url "https://repo1.maven.org/maven2/" } // 명시적으로 추가해도 안전
 }
 
 dependencies {
@@ -80,6 +84,10 @@ dependencies {
 	implementation 'software.amazon.awssdk:auth:2.20.15'
 	implementation 'software.amazon.awssdk:regions:2.20.15'
 	implementation 'com.fasterxml.jackson.core:jackson-databind' // JSON 파싱용
+
+	implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
+	implementation 'ca.pjer:logback-awslogs-appender:1.6.0'
+	implementation 'org.springframework.boot:spring-boot-starter-aop'
 
 }
 ext {

@@ -12,7 +12,6 @@ import kr.co.pinup.stores.model.enums.Status;
 import kr.co.pinup.stores.service.StoreService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -31,9 +30,6 @@ public class StoreController {
     private final CategoryService categoryService;
     private final LocationService locationService;
     private final StoreImageService storeImageService;
-
-    @Value("${api.kakaomap.key}")
-    private String kakaoMapKey;
 
     @GetMapping
     public String listStores(@RequestParam(required = false) String status, Model model) {
@@ -66,15 +62,12 @@ public class StoreController {
 
     @GetMapping("/create")
     public String createStoreForm(Model model) {
-        log.info("kakaoMap API KEY {}", kakaoMapKey);
         model.addAttribute("categories", categoryService.getAllCategories());
-        model.addAttribute("kakaoMapKey", kakaoMapKey);
         return "views/stores/create";
     }
 
     @PostMapping("/create")
     public String createStore(@Valid @ModelAttribute StoreRequest storeRequest) {
-
         return "redirect:views/stores/list";
     }
 

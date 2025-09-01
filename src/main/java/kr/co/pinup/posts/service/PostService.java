@@ -2,6 +2,7 @@ package kr.co.pinup.posts.service;
 
 import jakarta.transaction.Transactional;
 import kr.co.pinup.comments.repository.CommentRepository;
+import kr.co.pinup.custom.logging.StructuredLogger;
 import kr.co.pinup.members.Member;
 import kr.co.pinup.members.exception.MemberNotFoundException;
 import kr.co.pinup.members.model.dto.MemberInfo;
@@ -37,7 +38,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class PostService {
-
+    private final StructuredLogger logger;
     private final PostRepository postRepository;
     private final PostImageService postImageService;
     private final MemberRepository memberRepository;
@@ -55,6 +56,7 @@ public class PostService {
             post.updateThumbnail(postImages.get(0).getS3Url());
         }
 
+        logger.withTarget(post).info("게시글 생성 완료: postId=" + post.getId() + ", title=" + post.getTitle());
         return PostResponse.from(post);
     }
 

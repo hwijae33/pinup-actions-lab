@@ -31,5 +31,4 @@ public class S3ClientConfig {
                         .build())
                 .build();
     }
-
 }

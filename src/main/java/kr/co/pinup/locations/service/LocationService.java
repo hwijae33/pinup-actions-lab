@@ -1,6 +1,8 @@
 package kr.co.pinup.locations.service;
 
 import jakarta.transaction.Transactional;
+import kr.co.pinup.api.kakao.model.dto.KakaoAddressDto;
+import kr.co.pinup.api.kakao.service.KakaoMapService;
 import kr.co.pinup.locations.Location;
 import kr.co.pinup.locations.exception.LocationNotFoundException;
 import kr.co.pinup.locations.model.dto.CreateLocationRequest;
@@ -18,24 +20,25 @@ import org.springframework.stereotype.Service;
 public class LocationService  {
 
     private final LocationRepository locationRepository;
+    private final KakaoMapService kakaoMapService;
 
-    public LocationResponse createLocation(CreateLocationRequest locationRequest) {
+    public LocationResponse createLocation(CreateLocationRequest request) {
+        KakaoAddressDto coord = kakaoMapService.getLocationFromAddress(request.address());
+
         Location location = Location.builder()
-                .name(locationRequest.name())
-                .zoneCode(locationRequest.zoneCode())
-                .state(locationRequest.state())
-                .district(locationRequest.district())
-                .latitude(locationRequest.latitude())
-                .longitude(locationRequest.longitude())
-                .address(locationRequest.address())
-                .addressDetail(locationRequest.addressDetail())
+                .name(request.name())
+                .zoneCode(request.zoneCode())
+                .state(request.state())
+                .district(request.district())
+                .address(request.address())
+                .addressDetail(request.addressDetail())
+                .latitude(Double.valueOf(coord.latitude()))
+                .longitude(Double.valueOf(coord.longitude()))
                 .build();
 
-        Location savedLocation = locationRepository.save(location);
-
-        return LocationResponse.from(savedLocation);
-
+        return LocationResponse.from(locationRepository.save(location));
     }
+
 
     public LocationResponse getLocationId(Long id) {
 
