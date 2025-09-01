@@ -1,5 +1,6 @@
 package kr.co.pinup.config;
 
+import kr.co.pinup.custom.logging.AppLogger;
 import kr.co.pinup.members.service.MemberService;
 import kr.co.pinup.security.SecurityConstants;
 import kr.co.pinup.security.SecurityUtil;
@@ -14,6 +15,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
@@ -39,13 +41,18 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SessionExpirationFilter sessionExpirationFilter(SecurityUtil securityUtil) {
-        return new SessionExpirationFilter(securityUtil);
+    public SessionExpirationFilter sessionExpirationFilter(SecurityUtil securityUtil, AppLogger appLogger) {
+        return new SessionExpirationFilter(securityUtil, appLogger);
     }
 
     @Bean
-    public AccessTokenValidationFilter accessTokenValidationFilter(MemberService memberService, SecurityUtil securityUtil) {
-        return new AccessTokenValidationFilter(memberService, securityUtil);
+    public AccessTokenValidationFilter accessTokenValidationFilter(MemberService memberService, SecurityUtil securityUtil, AppLogger appLogger) {
+        return new AccessTokenValidationFilter(memberService, securityUtil, appLogger);
+    }
+
+    @Bean
+    public BCryptPasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 
     /**
@@ -85,7 +92,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList("*"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("X-Requested-With", "Content-Type", "Authorization", "X-XSRF-token"));
         configuration.setAllowCredentials(false);
         configuration.setMaxAge(3600L);

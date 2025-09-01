@@ -1,6 +1,8 @@
 package kr.co.pinup.custom.customTag;
 
 import kr.co.pinup.config.OauthConfig;
+import kr.co.pinup.custom.customTag.GoogleAuthUriProcessor;
+import kr.co.pinup.custom.customTag.NaverAuthUriProcessor;
 import org.thymeleaf.dialect.AbstractProcessorDialect;
 import org.thymeleaf.processor.IProcessor;
 

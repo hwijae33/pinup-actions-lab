@@ -1,4 +1,4 @@
-//package kr.co.pinup.members.oauth;
+package kr.co.pinup.members.oauth;//package kr.co.pinup.members.oauth;
 //
 //import com.fasterxml.jackson.databind.ObjectMapper;
 //import com.github.tomakehurst.wiremock.WireMockServer;

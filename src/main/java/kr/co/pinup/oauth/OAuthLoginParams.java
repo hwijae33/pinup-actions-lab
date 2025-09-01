@@ -1,5 +1,6 @@
 package kr.co.pinup.oauth;
 
+import kr.co.pinup.oauth.OAuthProvider;
 import org.springframework.util.MultiValueMap;
 
 public interface OAuthLoginParams {

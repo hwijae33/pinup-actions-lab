@@ -1,5 +1,6 @@
 package kr.co.pinup.config;
 
+import kr.co.pinup.config.OauthConfig;
 import kr.co.pinup.custom.customTag.CustomDialect;
 import nz.net.ultraq.thymeleaf.layoutdialect.LayoutDialect;
 import org.springframework.context.annotation.Bean;

@@ -2,7 +2,10 @@ package kr.co.pinup.posts.service;
 
 import jakarta.transaction.Transactional;
 import kr.co.pinup.comments.repository.CommentRepository;
-import kr.co.pinup.custom.logging.StructuredLogger;
+import kr.co.pinup.custom.logging.AppLogger;
+import kr.co.pinup.custom.logging.model.dto.ErrorLog;
+import kr.co.pinup.custom.logging.model.dto.InfoLog;
+import kr.co.pinup.custom.logging.model.dto.WarnLog;
 import kr.co.pinup.members.Member;
 import kr.co.pinup.members.exception.MemberNotFoundException;
 import kr.co.pinup.members.model.dto.MemberInfo;
@@ -14,6 +17,7 @@ import kr.co.pinup.postImages.model.dto.CreatePostImageRequest;
 import kr.co.pinup.postImages.model.dto.PostImageResponse;
 import kr.co.pinup.postImages.model.dto.UpdatePostImageRequest;
 import kr.co.pinup.postImages.service.PostImageService;
+import kr.co.pinup.postLikes.repository.PostLikeRepository;
 import kr.co.pinup.posts.Post;
 import kr.co.pinup.posts.exception.post.PostDeleteFailedException;
 import kr.co.pinup.posts.exception.post.PostNotFoundException;
@@ -38,17 +42,24 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class PostService {
-    private final StructuredLogger logger;
+
     private final PostRepository postRepository;
     private final PostImageService postImageService;
     private final MemberRepository memberRepository;
     private final StoreRepository  storeRepository;
     private final CommentRepository commentRepository;
+    private final PostLikeRepository postLikeRepository;
+    private final AppLogger appLogger ;
 
     @Transactional
     public PostResponse createPost(MemberInfo memberInfo, CreatePostRequest createPostRequest, CreatePostImageRequest createPostImageRequest) {
         Post post = createPostEntity(memberInfo, createPostRequest);
         post = postRepository.save(post);
+
+        appLogger.info(new InfoLog("게시글 생성 완료")
+                .setStatus("201")
+                .setTargetId(post.getId().toString())
+                .addDetails("writer", post.getMember().getNickname(), "title", post.getTitle()));
 
         List<PostImage> postImages = postImageService.savePostImages(createPostImageRequest, post);
 
@@ -56,7 +67,6 @@ public class PostService {
             post.updateThumbnail(postImages.get(0).getS3Url());
         }
 
-        logger.withTarget(post).info("게시글 생성 완료: postId=" + post.getId() + ", title=" + post.getTitle());
         return PostResponse.from(post);
     }
 
@@ -76,20 +86,28 @@ public class PostService {
     }
 
     public List<PostResponse> findByStoreId(Long storeId, boolean isDeleted) {
+        log.debug("게시글 목록 요청: storeId={}, isDeleted={}", storeId, isDeleted);
         List<Post> posts = postRepository.findByStoreIdAndIsDeleted(storeId, isDeleted);
+
         return posts.stream()
                 .map(PostResponse::from)
                 .collect(Collectors.toList());
     }
 
-    public List<PostResponse> findByStoreIdWithCommentCount(Long storeId, boolean isDeleted) {
-        List<Post> posts = postRepository.findByStoreIdAndIsDeleted(storeId, isDeleted);
-        return posts.stream()
-                .map(post -> PostResponse.fromPostWithComments(post, commentRepository.countByPostId(post.getId())))
-                .collect(Collectors.toList());
+    public List<PostResponse> findByStoreIdWithCommentsAndLikes(Long storeId, boolean isDeleted, MemberInfo memberInfo) {
+        log.debug("댓글 포함 게시글 요청: storeId={}, isDeleted={}", storeId, isDeleted);
+
+        Long memberId = (memberInfo != null) ? memberRepository.findByNickname(memberInfo.nickname())
+                .orElseThrow(() -> new MemberNotFoundException(memberInfo.nickname() + "님을 찾을 수 없습니다."))
+                .getId() : null;
+
+        return postRepository.findPostListItems(storeId, isDeleted, memberId);
+
     }
 
     public PostResponse getPostById(Long id, boolean isDeleted) {
+        log.debug("게시글 단건 요청: postId={}, isDeleted={}", id, isDeleted);
+
         return postRepository.findByIdAndIsDeleted(id, isDeleted)
                 .map(PostResponse::from)
                 .orElseThrow(PostNotFoundException::new);
@@ -100,11 +118,20 @@ public class PostService {
         try {
             postImageService.deleteAllByPost(postId);
         } catch (Exception e) {
+            appLogger.error(new ErrorLog("게시글 삭제 실패", e)
+                    .setStatus("500")
+                    .setTargetId(postId.toString())
+                    .addDetails("reason", "이미지 삭제 실패"));
             throw new PostDeleteFailedException("게시글 삭제 중 이미지 삭제 실패. ID: " + postId);
         }
         try {
             postRepository.delete(post);
+            appLogger.info(new InfoLog("게시글 삭제 성공").setStatus("200").setTargetId(postId.toString()));
         } catch (Exception e) {
+            appLogger.error(new ErrorLog("게시글 삭제 실패", e)
+                    .setStatus("500")
+                    .setTargetId(postId.toString())
+                    .addDetails("reason", e.getMessage()));
             throw new PostDeleteFailedException("게시글 삭제 실패. ID: " + postId);
         }
     }
@@ -121,7 +148,7 @@ public class PostService {
             handleImageDeletionAndUpload(id, existingPost, imageRequest);
             updateThumbnailFromCurrentImages(existingPost, id);
         }
-
+        appLogger.info(new InfoLog("게시글 수정 완료").setStatus("200").setTargetId(id.toString()));
         return PostResponse.from(postRepository.save(existingPost));
     }
 
@@ -139,6 +166,10 @@ public class PostService {
 
         int remaining = currentCount - deleteCount + uploadCount;
         if (remaining < 2) {
+            appLogger.warn(new WarnLog("이미지 수 부족")
+                    .setStatus("400")
+                    .setTargetId(postId.toString())
+                    .addDetails("current", String.valueOf(currentCount), "delete", String.valueOf(deleteCount), "upload", String.valueOf(uploadCount)));
             throw new PostImageUpdateCountException();
         }
     }
@@ -146,6 +177,7 @@ public class PostService {
     private void handleImageDeletionAndUpload(Long postId, Post post, UpdatePostImageRequest request) {
         if (hasImagesToDelete(request)) {
             postImageService.deleteSelectedImages(postId, request);
+            appLogger.info(new InfoLog("이미지 삭제 및 업로드 처리").setTargetId(postId.toString()));
         }
         if (hasNewImagesToUpload(request)) {
             postImageService.savePostImages(request, post);
@@ -160,18 +192,33 @@ public class PostService {
         return request.getImages().stream().anyMatch(file -> !file.isEmpty());
     }
 
-    private void updateThumbnailFromCurrentImages(Post post, Long postId) {
-        List<PostImageResponse> remainingImages = postImageService.findImagesByPostId(postId);
-        if (!remainingImages.isEmpty()) {
-            post.updateThumbnail(remainingImages.get(0).getS3Url());
-        } else {
-            throw new PostImageNotFoundException("썸네일을 설정할 수 없습니다.");
+    public void updateThumbnailFromCurrentImages(Post post, Long postId) {
+        try {
+            List<PostImageResponse> remainingImages = postImageService.findImagesByPostId(postId);
+
+            if (!remainingImages.isEmpty()) {
+                appLogger.info(new InfoLog("썸네일 갱신 시도")
+                        .setTargetId(postId.toString())
+                        .addDetails("imageCount", String.valueOf(remainingImages.size())));
+
+                post.updateThumbnail(remainingImages.get(0).getS3Url());
+            } else {
+                throw new PostImageNotFoundException("썸네일을 설정할 수 없습니다.");
+            }
+
+        } catch (Exception e) {
+            appLogger.error(new ErrorLog("썸네일 갱신 실패", e)
+                    .setStatus("404")
+                    .setTargetId(postId.toString())
+                    .addDetails("reason", e.getMessage()));
+            throw e;
         }
     }
 
     public void disablePost(Long postId) {
         Post post = findByIdOrThrow(postId);
         post.disablePost(true);
+        appLogger.info(new InfoLog("게시글 비활성화 처리").setStatus("200").setTargetId(postId.toString()));
         postRepository.save(post);
     }
 

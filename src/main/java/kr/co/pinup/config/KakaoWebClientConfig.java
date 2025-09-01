@@ -1,40 +1,32 @@
 package kr.co.pinup.config;
 
-import lombok.extern.slf4j.Slf4j;
-import jakarta.annotation.PostConstruct;
-import kr.co.pinup.custom.secretManager.SecretsManagerService;
+import kr.co.pinup.api.aws.AwsSecretsProvider;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.http.HttpHeaders;
 import org.springframework.web.reactive.function.client.WebClient;
 
 @Slf4j
 @Configuration
+@Profile("!test")
 @RequiredArgsConstructor
 public class KakaoWebClientConfig {
 
-    private final SecretsManagerService secretsManagerService;
+    private static final String API_BASE_URL = "https://dapi.kakao.com";
+    private static final String KAKAO_API_REST_KEY = "kakao.api.key.rest";
 
-    @PostConstruct
-    @Profile("local")
-    public void printKeys() {
-        try {
-            String restKey = secretsManagerService.getField("local/api/kakaomap", "kakao.api.key.rest");
-            String jsKey = secretsManagerService.getField("local/api/kakaomap", "kakao.api.key.js");
-            log.info("🔑 kakaoRestKey = {}", restKey);
-            log.info("🔑 kakaoJsKey   = {}", jsKey);
-        } catch (Exception e) {
-            log.warn("⚠ Kakao REST Key 를 가져오는 데 실패했습니다: {}", e.getMessage());
-        }
-    }
+    private final AwsSecretsProvider secretsProvider;
 
     @Bean
     public WebClient kakaoWebClient() {
-        String restKey = secretsManagerService.getField("local/api/kakaomap", "kakao.api.key.rest");
+        String restKey = secretsProvider.getSecretValue(KAKAO_API_REST_KEY);
+
         return WebClient.builder()
-                .baseUrl("https://dapi.kakao.com")
-                .defaultHeader("Authorization", "KakaoAK " + restKey)
+                .baseUrl(API_BASE_URL)
+                .defaultHeader(HttpHeaders.AUTHORIZATION, "KakaoAK " + restKey)
                 .build();
     }
 }

@@ -1,7 +1,9 @@
 package kr.co.pinup.custom.logging;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import kr.co.pinup.BaseEntity;
+import kr.co.pinup.custom.logging.model.dto.BaseLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -15,7 +17,7 @@ import java.util.Map;
 public class StructuredLogger {
 
     private final Logger logger = LoggerFactory.getLogger(StructuredLogger.class);
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
     private Map<String, Object> getBaseFields(String level) {
         Map<String, Object> fields = new HashMap<>();
@@ -26,12 +28,18 @@ public class StructuredLogger {
         fields.put("className", MDC.get("className"));
         fields.put("methodName", MDC.get("methodName"));
         fields.put("targetId", MDC.get("targetId"));
+
+        String status = MDC.get("status");
+        if (status != null) {
+            fields.put("status", status);
+        }
         return fields;
     }
 
-    public void info(String message) {
+    public void info(String message, Map<String, Object> additionalFields) {
         Map<String, Object> log = getBaseFields("INFO");
         log.put("message", message);
+        if (additionalFields != null) log.putAll(additionalFields);
         logger.info(toJson(log));
     }
 
@@ -67,10 +75,17 @@ public class StructuredLogger {
         }
     }
 
-    public StructuredLogger withTarget(BaseEntity entity) {
-        if (entity != null && entity.getId() != null) {
-            MDC.put("targetId", String.valueOf(entity.getId()));
+    public void log(BaseLog payload) {
+        try {
+            String json = objectMapper.writeValueAsString(payload);
+            switch (payload.getLogLevel()) {
+                case "INFO" -> logger.info(json);
+                case "WARN" -> logger.warn(json);
+                case "ERROR" -> logger.error(json);
+                default -> logger.info(json);
+            }
+        } catch (JsonProcessingException e) {
+            logger.error("Failed to serialize log payload", e);
         }
-        return this;
     }
 }

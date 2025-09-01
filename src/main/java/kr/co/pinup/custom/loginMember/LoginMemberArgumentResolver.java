@@ -1,5 +1,6 @@
 package kr.co.pinup.custom.loginMember;
 
+import kr.co.pinup.custom.loginMember.LoginMember;
 import kr.co.pinup.exception.common.UnauthorizedException;
 import kr.co.pinup.members.model.dto.MemberInfo;
 import lombok.RequiredArgsConstructor;

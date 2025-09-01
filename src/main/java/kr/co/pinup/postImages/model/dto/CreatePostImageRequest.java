@@ -2,6 +2,7 @@ package kr.co.pinup.postImages.model.dto;
 
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
+import kr.co.pinup.postImages.model.dto.PostImageUploadRequest;
 import lombok.*;
 import org.springframework.web.multipart.MultipartFile;
 

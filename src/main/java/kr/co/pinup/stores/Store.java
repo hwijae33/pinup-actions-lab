@@ -3,30 +3,53 @@ package kr.co.pinup.stores;
 import jakarta.persistence.*;
 import kr.co.pinup.BaseEntity;
 import kr.co.pinup.locations.Location;
-import kr.co.pinup.store_categories.StoreCategory;
-import kr.co.pinup.store_operatingHour.OperatingHour;
+import kr.co.pinup.storecategories.StoreCategory;
+import kr.co.pinup.storeimages.StoreImage;
+import kr.co.pinup.storeoperatinghour.StoreOperatingHour;
 import kr.co.pinup.stores.model.dto.StoreUpdateRequest;
-import kr.co.pinup.stores.model.enums.Status;
-import lombok.*;
+import kr.co.pinup.stores.model.enums.StoreStatus;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-@Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor
-@Builder
-@Setter
+@Entity
 @Table(name = "stores")
 public class Store extends BaseEntity {
 
-    @Column(nullable = false)
+    @Column(name = "name", nullable = false)
     private String name;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(name = "description", nullable = false, columnDefinition = "TEXT")
     private String description;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "store_status", nullable = false)
+    private StoreStatus storeStatus;
+
+    @Column(name = "start_date", nullable = false)
+    private LocalDate startDate;
+
+    @Column(name = "end_date", nullable = false)
+    private LocalDate endDate;
+
+    @Column(name = "website_url")
+    private String websiteUrl;
+
+    @Column(name = "sns_url")
+    private String snsUrl;
+
+    @Column(name = "view_count", nullable = false)
+    private long viewCount;
+
+    @Column(name = "is_deleted", nullable = false)
+    private boolean isDeleted;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
@@ -36,58 +59,65 @@ public class Store extends BaseEntity {
     @JoinColumn(name = "location_id", nullable = false)
     private Location location;
 
-    @Column(nullable = false)
-    private LocalDate startDate;
-
-    @Column(nullable = false)
-    private LocalDate endDate;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    @Builder.Default
-    private Status status = Status.PENDING;
-
-    @Column(columnDefinition = "TEXT")
-    private String imageUrl;
-
-    @Column(length = 50)
-    private String contactNumber;
-
-    @Column(length = 255)
-    private String websiteUrl;
-
-    @Column(length = 255)
-    private String snsUrl;
-
-    @Column(name = "is_deleted", nullable = false, columnDefinition = "BOOLEAN default false")
-    private boolean deleted;
+    @OneToMany(mappedBy = "store", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<StoreOperatingHour> operatingHours = new ArrayList<>();
 
     @OneToMany(mappedBy = "store", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<OperatingHour> operatingHours = new ArrayList<>();
+    private List<StoreImage> storeImages = new ArrayList<>();
 
-    public void updateStore(StoreUpdateRequest request, StoreCategory category, Location location) {
-        if (request.getName() != null) this.name = request.getName();
-
-        if (request.getDescription() != null) this.description = request.getDescription();
-        if (request.getCategoryId() != null) this.category = category;
-        if (request.getLocationId() != null) this.location = location;
-        if (request.getStartDate() != null) this.startDate = request.getStartDate();
-        if (request.getEndDate() != null) this.endDate = request.getEndDate();
-        if (request.getStatus() != null) this.status = request.getStatus();
+    @Builder
+    private Store(
+            final String name, final String description, final StoreStatus storeStatus, final LocalDate startDate,
+            final LocalDate endDate, final String websiteUrl, final String snsUrl,
+            final StoreCategory category, final Location location
+    ) {
+        this.name = name;
+        this.description = description;
+        this.storeStatus = storeStatus;
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.websiteUrl = websiteUrl;
+        this.snsUrl = snsUrl;
+        this.viewCount = 0L;
+        this.isDeleted = false;
+        this.category = category;
+        this.location = location;
     }
 
-    public void deleteStore() {
-        this.deleted = true;
+    public void updateStatus(final StoreStatus newStatus) {
+        this.storeStatus = newStatus;
     }
 
-    public void updateImageUrl(String newImageUrl) {
-        this.imageUrl = newImageUrl;
+    public void update(final StoreUpdateRequest request, final StoreCategory category, final Location location) {
+        name = request.name();
+        description = request.description();
+        startDate = request.startDate();
+        endDate = request.endDate();
+        websiteUrl = request.websiteUrl();
+        snsUrl = request.snsUrl();
+        this.category = category;
+        this.location = location;
     }
 
+    public void deleteStore(final boolean isDeleted) {
+        this.isDeleted = isDeleted;
+    }
 
+    public void addOperatingHours(final List<StoreOperatingHour> operatingHours) {
+        this.operatingHours.addAll(operatingHours);
+        for (StoreOperatingHour operatingHour : operatingHours) {
+            operatingHour.setStore(this);
+        }
+    }
 
+    public void addImages(final List<StoreImage> storeImages) {
+        this.storeImages.addAll(storeImages);
+        for (StoreImage storeImage : storeImages) {
+            storeImage.setStore(this);
+        }
+    }
 
+    public void operatingHoursClear() {
+        operatingHours.clear();
+    }
 }
-
-
