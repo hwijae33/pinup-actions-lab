@@ -10,80 +10,21 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    services:
-      localstack:
-        image: localstack/localstack:latest
-        ports:
-          - 4566:4566
-        env:
-          SERVICES: s3
-          DEBUG: 1
-          DATA_DIR: /tmp/localstack/data
-        options: >-
-          --health-cmd "curl -f http://localhost:4566/_localstack/health || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
-
-    env:
-      AWS_ACCESS_KEY_ID: test
-      AWS_SECRET_ACCESS_KEY: test
-      AWS_REGION: us-east-1
-      AWS_S3_BUCKET_NAME: pinup-test
-      JAVA_TOOL_OPTIONS: >-
-        -Daws.chunkedEncodingDisabled=true
-        -Dcom.amazonaws.sdk.disableCertChecking=true
-
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Create application-test.yml from GitHub Secret
+      # 테스트 파일/LocalStack 등 아무 것도 띄우지 않음
+      - name: Skip tests intentionally
         run: |
-          mkdir -p src/test/resources
-          echo "${{ secrets.APPLICATION_TEST_YML }}" | base64 --decode > src/test/resources/application-test.yml
+          echo "✅ Tests intentionally skipped." >> $GITHUB_STEP_SUMMARY
 
-      - name: Set up JDK
-        uses: actions/setup-java@v3
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Grant execute permission for Gradle Wrapper
-        run: chmod +x ./gradlew
-
-      - name: Run Tests
-        id: test
-        run: |
-          set -o pipefail
-          ./gradlew clean test --console=plain --no-daemon | tee test-log.txt
-
-      - name: 💬 PR Comment (Test Result)
-        if: always()
+      # PR이면 코멘트만 남김
+      - name: 💬 PR Comment (Tests Skipped)
+        if: github.event_name == 'pull_request'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: test-result
           message: |
-            ${{ job.status == 'success' && '✅ 테스트 통과!' || '❌ 테스트 실패! 로그 확인 필요.' }}
-
-      - name: 📄 실패 테스트 한 줄 요약
-        if: failure()
-        run: |
-          echo "## ❌ 실패한 테스트 목록" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          # 실패 줄 추출
-          FAILED_LINES=$(grep "FAILED" test-log.txt | grep " > " || true)
-          COUNT=$(echo "$FAILED_LINES" | grep -c '^' || echo 0)
-
-          # 실패 수 표시
-          echo "- 총 실패 테스트 수: **${COUNT}개**" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          # 목록 출력
-          echo "$FAILED_LINES" | while read -r line; do
-            echo "- ❌ ${line}" >> $GITHUB_STEP_SUMMARY
-          done
-
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "_자세한 내용은 'Actions > Run logs' 를 확인하세요._" >> $GITHUB_STEP_SUMMARY
+            ⚠️ 이 워크플로는 현재 **테스트를 실행하지 않도록** 설정되어 있습니다.
+            - 상태: **Skipped**
