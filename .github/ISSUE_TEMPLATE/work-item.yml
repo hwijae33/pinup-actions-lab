@@ -31,26 +31,46 @@ body:
         - stores
         - verification
 
+  - type: checkboxes
+    id: affected_tables
+    attributes:
+      label: Affected Tables
+      description: 영향 받는 테이블을 모두 선택하세요 (복수 선택)
+      options:
+        - label: comments
+        - label: faqs
+        - label: locations
+        - label: members
+        - label: notices
+        - label: post_images
+        - label: post_like
+        - label: posts
+        - label: store_categories
+        - label: store_images
+        - label: store_operating_hour
+        - label: stores
+        - label: verification
+
   - type: dropdown
     id: area
     attributes:
       label: Area
       description: 기술 영역을 선택하세요
-      options: [Frontend, Backend, DevOps, Data, QA]
+      options: [Frontend, Backend, DevOps, Data]
       default: 0
 
   - type: dropdown
     id: story_points
     attributes:
       label: Story Points
-      options: ["1","2","3","5","8","13"]
+      options: ["1","2","3","5","7","10"]
       default: 2
 
   - type: dropdown
     id: due_year
     attributes:
       label: Due Year
-      options: ["2025","2026","2027","2028"]
+      options: ["2025","2026","2027","2028","2029"]
       default: 0
 
   - type: dropdown
