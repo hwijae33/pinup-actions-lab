@@ -8,12 +8,10 @@ jobs:
   sync-project-fields:
     runs-on: ubuntu-latest
     env:
-      # === 필수: 아래 값 채워주세요 ===
-      ORG: your-org            # Org 프로젝트면 ORG 설정, 개인이면 비워두고 USER 사용
-      USER: ""                 # 개인 프로젝트면 your-username
-      PROJECT_NUMBER: "1"      # Projects의 번호
-      GH_TOKEN: ${{ secrets.ADD_TO_PROJECT_PAT }}
-      # === 라벨↔필드 매핑 규칙 ===
+      ORG: your-org
+      USER: ""
+      PROJECT_NUMBER: "1"
+      GH_TOKEN: ${{ secrets.ADD_TO_PROJECT_PAT }}  # ← 이제 없어도 되지만 남겨둬도 OK
       PRIORITY_PREFIX: "priority/"
       COMPONENT_PREFIX: "component/"
       STORYPOINTS_PREFIX: "sp/"
@@ -26,14 +24,18 @@ jobs:
     steps:
       - uses: actions/github-script@v6
         with:
+          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}  # ← 추가
           script: |
-            const { graphql } = require('@octokit/graphql');
-            const gql = graphql.defaults({ headers: { authorization: `token ${process.env.GH_TOKEN}` }});
+            // ❌ 외부 모듈 require 금지
+            // const { graphql } = require('@octokit/graphql');
+
+            // ✅ 주입된 Octokit 사용
+            const gql = github.graphql;
+
             const isOrg = !!process.env.ORG;
             const ownerVar = isOrg ? { org: process.env.ORG } : { login: process.env.USER };
             const projectNumber = Number(process.env.PROJECT_NUMBER);
 
-            // 1) 프로젝트/필드 메타 조회
             const projQuery = `
               query($org:String, $login:String, $num:Int!) {
                 ${isOrg ? 'organization(login:$org)' : 'user(login:$login)'} {
@@ -65,7 +67,6 @@ jobs:
             const spField = findField(process.env.STORYPOINTS_FIELD_NAME);
             const dueField = findField(process.env.DUEDATE_FIELD_NAME);
 
-            // 2) 이슈 → 프로젝트 아이템 존재 확인 (없으면 추가)
             const issue = context.payload.issue;
             const itemQuery = `
               query($issue:ID!){
@@ -95,17 +96,15 @@ jobs:
               itemId = addRes.addProjectV2ItemById.item.id;
             }
 
-            // 3) 라벨 파싱
             const labels = (issueNode.labels?.nodes || []).map(l => l.name);
             const parseMap = (s) => Object.fromEntries(s.split(',').map(e => e.trim()).filter(Boolean).map(e => {
               const [k,v] = e.split(':').map(x=>x.trim());
               return [k, v];
             }));
 
-            // Priority
             if (priorityField && priorityField.options) {
               const prefix = process.env.PRIORITY_PREFIX;
-              const map = parseMap(process.env.PRIORITY_MAP); // e.g. high:High
+              const map = parseMap(process.env.PRIORITY_MAP);
               const prioLabel = labels.find(l => l.toLowerCase().startsWith(prefix));
               if (prioLabel) {
                 const key = prioLabel.slice(prefix.length).toLowerCase();
@@ -124,7 +123,6 @@ jobs:
               }
             }
 
-            // Component
             if (componentField && componentField.options) {
               const prefix = process.env.COMPONENT_PREFIX.toLowerCase();
               const compLabel = labels.find(l => l.toLowerCase().startsWith(prefix));
@@ -144,7 +142,6 @@ jobs:
               }
             }
 
-            // Story Points
             if (spField) {
               const prefix = process.env.STORYPOINTS_PREFIX.toLowerCase();
               const spLabel = labels.find(l => l.toLowerCase().startsWith(prefix));
@@ -163,7 +160,6 @@ jobs:
               }
             }
 
-            // Due Date from milestone.dueOn
             if (dueField && issueNode.milestone?.dueOn) {
               const iso = issueNode.milestone.dueOn;
               await gql(`
