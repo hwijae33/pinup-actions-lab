@@ -31,26 +31,6 @@ body:
         - stores
         - verification
 
-  - type: checkboxes
-    id: affected_tables
-    attributes:
-      label: Affected Tables
-      description: 영향 받는 테이블을 모두 선택하세요 (복수 선택)
-      options:
-        - label: comments
-        - label: faqs
-        - label: locations
-        - label: members
-        - label: notices
-        - label: post_images
-        - label: post_like
-        - label: posts
-        - label: store_categories
-        - label: store_images
-        - label: store_operating_hour
-        - label: stores
-        - label: verification
-
   - type: dropdown
     id: area
     attributes:
