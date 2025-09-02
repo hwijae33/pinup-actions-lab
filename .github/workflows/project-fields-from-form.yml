@@ -1,0 +1,169 @@
+name: Sync issue form to Project fields (no labels)
+
+on:
+  issues:
+    types: [opened, edited]   # 이슈 생성/수정 시마다 반영
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      USER: "hwijae33"        # 개인 프로젝트 → USER만 사용
+      PROJECT_NUMBER: "4"     # 프로젝트 번호 (URL의 마지막 숫자)
+      PRIORITY_FIELD_NAME: "Priority"
+      COMPONENT_FIELD_NAME: "Component"
+      STORYPOINTS_FIELD_NAME: "Story Points"
+      DUEDATE_FIELD_NAME: "Due Date"
+      REVIEW_FIELD_NAME: "Review Status"  # (있으면) 기본값 Pending으로 넣어볼 수 있음
+      REVIEW_DEFAULT: "Pending"
+
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.PROJECTS_TOKEN }}
+          script: |
+            const gql = github.graphql;
+            const ops = [];
+
+            // === 0) 프로젝트/필드 메타 ===
+            const userLogin = process.env.USER.trim();
+            const projectNumber = Number(process.env.PROJECT_NUMBER);
+
+            const { user } = await gql(`
+              query($login:String!, $num:Int!) {
+                user(login:$login){
+                  projectV2(number:$num){
+                    id
+                    title
+                    fields(first:100){
+                      nodes{
+                        ... on ProjectV2FieldCommon { id name }
+                        ... on ProjectV2SingleSelectField { id name options { id name } }
+                      }
+                    }
+                  }
+                }
+              }
+            `, { login: userLogin, num: projectNumber });
+
+            if (!user?.projectV2) { core.setFailed("Project not found"); return; }
+            const project = user.projectV2;
+            const fields = project.fields.nodes;
+            const findField = (n) => fields.find(f => f && f.name === n);
+
+            const fPriority  = findField(process.env.PRIORITY_FIELD_NAME);
+            const fComponent = findField(process.env.COMPONENT_FIELD_NAME);
+            const fSP        = findField(process.env.STORYPOINTS_FIELD_NAME);
+            const fDue       = findField(process.env.DUEDATE_FIELD_NAME);
+            const fReview    = findField(process.env.REVIEW_FIELD_NAME);
+
+            // === 1) 이슈 본문에서 값 파싱 (이슈 폼 섹션) ===
+            const issue = context.payload.issue;
+            const body = issue.body || "";
+
+            // 섹션 라벨 텍스트는 폼의 label과 동일하게 들어옴
+            const pick = (label) => {
+              const re = new RegExp(`^###\\s*${label}\\s*\\n+([\\s\\S]*?)(?=\\n###|$)`, "m");
+              const m = body.match(re);
+              return m ? m[1].trim() : "";
+            };
+
+            const vPriority  = pick("Priority");           // "High" 등
+            const vComponent = pick("Component");          // "Frontend" 등
+            const vSPraw     = pick("Story Points");       // "3"
+            const vDue       = pick("Due Date (YYYY-MM-DD)"); // "2025-09-15"
+
+            const vSP = Number(vSPraw);
+            // === 2) 이슈 → 프로젝트 아이템 보장 ===
+            const resIssue = await gql(`
+              query($id:ID!){
+                node(id:$id){
+                  ... on Issue {
+                    id number
+                    projectItems(first:30){ nodes { id project { id } } }
+                  }
+                }
+              }`, { id: issue.node_id });
+            const issueNode = resIssue.node;
+
+            let itemId = issueNode.projectItems.nodes.find(n => n.project.id === project.id)?.id;
+            if (!itemId) {
+              const add = await gql(`
+                mutation($pid:ID!,$content:ID!){
+                  addProjectV2ItemById(input:{projectId:$pid, contentId:$content}) {
+                    item { id }
+                  }
+                }`, { pid: project.id, content: issueNode.id });
+              itemId = add.addProjectV2ItemById.item.id;
+              ops.push(`➕ Added to project "${project.title}" (Issue #${issueNode.number})`);
+            } else {
+              ops.push(`✓ Already in project "${project.title}" (Issue #${issueNode.number})`);
+            }
+
+            // === 3) 필드 값 쓰기 ===
+            const updateSelect = async (field, valueText, label) => {
+              if (!field?.options?.length || !valueText) return;
+              const opt = field.options.find(o => o.name === valueText);
+              if (!opt) { ops.push(`⚠️ ${label}: option "${valueText}" not found`); return; }
+              await gql(`
+                mutation($pid:ID!,$item:ID!,$fid:ID!,$opt:ID!){
+                  updateProjectV2ItemFieldValue(input:{
+                    projectId:$pid, itemId:$item, fieldId:$fid,
+                    value:{ singleSelectOptionId:$opt }
+                  }){ projectV2Item { id } }
+                }`, { pid: project.id, item: itemId, fid: field.id, opt: opt.id });
+              ops.push(`🔁 ${label} → ${valueText}`);
+            };
+
+            const updateNumber = async (field, num, label) => {
+              if (!field || Number.isNaN(num)) return;
+              await gql(`
+                mutation($pid:ID!,$item:ID!,$fid:ID!,$val:Float!){
+                  updateProjectV2ItemFieldValue(input:{
+                    projectId:$pid, itemId:$item, fieldId:$fid,
+                    value:{ number:$val }
+                  }){ projectV2Item { id } }
+                }`, { pid: project.id, item: itemId, fid: field.id, val: num });
+              ops.push(`🔁 ${label} → ${num}`);
+            };
+
+            const updateDate = async (field, iso, label) => {
+              if (!field || !iso) return;
+              // YYYY-MM-DD 형식만 허용(간단 검증)
+              if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) { ops.push(`⚠️ ${label}: invalid date "${iso}"`); return; }
+              await gql(`
+                mutation($pid:ID!,$item:ID!,$fid:ID!,$date:Date!){
+                  updateProjectV2ItemFieldValue(input:{
+                    projectId:$pid, itemId:$item, fieldId:$fid,
+                    value:{ date:$date }
+                  }){ projectV2Item { id } }
+                }`, { pid: project.id, item: itemId, fid: field.id, date: iso });
+              ops.push(`🔁 ${label} → ${iso}`);
+            };
+
+            await updateSelect(fPriority,  vPriority,  "Priority");
+            await updateSelect(fComponent, vComponent, "Component");
+            await updateNumber(fSP, vSP,   "Story Points");
+            await updateDate(fDue, vDue,   "Due Date");
+
+            // (옵션) Review Status 필드가 있으면 기본값 Pending
+            if (fReview?.options?.length && process.env.REVIEW_DEFAULT) {
+              const opt = fReview.options.find(o => o.name === process.env.REVIEW_DEFAULT);
+              if (opt) {
+                await gql(`
+                  mutation($pid:ID!,$item:ID!,$fid:ID!,$opt:ID!){
+                    updateProjectV2ItemFieldValue(input:{
+                      projectId:$pid, itemId:$item, fieldId:$fid,
+                      value:{ singleSelectOptionId:$opt }
+                    }){ projectV2Item { id } }
+                  }`, { pid: project.id, item: itemId, fid: fReview.id, opt: opt.id });
+                ops.push(`🔁 Review Status → ${process.env.REVIEW_DEFAULT}`);
+              }
+            }
+
+            // 요약 출력
+            const summary = ops.length ? ops.join('\n') : 'No field changes.';
+            console.log(summary);
+            await core.summary.addHeading('Project sync result')
+              .addRaw(summary.replace(/\n/g,'<br/>'))
+              .write();
