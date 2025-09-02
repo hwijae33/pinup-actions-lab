@@ -3,7 +3,7 @@ description: 프로젝트 작업 생성 (라벨 없이 필드로 관리)
 title: "[Task] "
 labels: []
 body:
-  - type: single_select
+  - type: dropdown
     id: priority
     attributes:
       label: Priority
