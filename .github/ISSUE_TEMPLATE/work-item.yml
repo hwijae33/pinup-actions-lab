@@ -15,7 +15,7 @@ body:
     id: component
     attributes:
       label: Component
-      description: 담당 테이블(대표 도메인) 1개를 선택하세요
+      description: 작업 테이블(대표 도메인) 1개를 선택하세요
       options:
         - comments
         - faqs
@@ -56,14 +56,14 @@ body:
     attributes:
       label: Area
       description: 기술 영역
-      options: [Frontend, Backend, DevOps, Data, QA]
+      options: [Frontend, Backend, DevOps, Data]
 
   - type: dropdown
     id: story_points
     attributes:
       label: Story Points
       description: 작업 규모/복잡도 (피보나치)
-      options: ["1","2","3","5","8","13"]
+      options: ["1","2","3","4","5"]
 
   - type: dropdown
     id: due_year
