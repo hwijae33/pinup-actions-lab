@@ -8,9 +8,8 @@ jobs:
   sync-project-fields:
     runs-on: ubuntu-latest
     env:
-      ORG: your-org         # Org 프로젝트면 ORG=실제조직, USER=""
-      USER: ""              # 개인 프로젝트면 ORG="" , USER=your-username
-      PROJECT_NUMBER: "1"
+      USER: "hwijae33"         # ★ 개인 프로젝트: USER만 채움
+      PROJECT_NUMBER: "4"
       PRIORITY_PREFIX: "priority/"
       COMPONENT_PREFIX: "component/"
       STORYPOINTS_PREFIX: "sp/"

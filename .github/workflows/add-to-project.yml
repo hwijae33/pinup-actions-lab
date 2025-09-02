@@ -16,6 +16,6 @@ jobs:
       - uses: actions/add-to-project@v1.0.2
         with:
           # ↓ 본인 프로젝트 URL로 교체
-          project-url: https://github.com/users/hwijae33/projects/1
+          project-url: https://github.com/users/hwijae33/projects/4
           # ↑ Org 프로젝트면: https://github.com/orgs/<ORG>/projects/<NUMBER>
           github-token: ${{ secrets.PROJECTS_TOKEN }}
