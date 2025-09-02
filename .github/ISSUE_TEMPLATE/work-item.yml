@@ -19,11 +19,22 @@ body:
     attributes:
       label: Story Points
       placeholder: "예: 3"
-  - type: input
-    id: due_date
+  - type: dropdown
+    id: due_year
     attributes:
-      label: Due Date (YYYY-MM-DD)
-      placeholder: "예: 2025-09-15"
+      label: Due Year
+      options: ["2025","2026","2027"]
+      default: 0
+  - type: dropdown
+    id: due_month
+    attributes:
+      label: Due Month
+      options: ["01","02","03","04","05","06","07","08","09","10","11","12"]
+  - type: dropdown
+    id: due_day
+    attributes:
+      label: Due Day
+      options: ["01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31"]
   - type: textarea
     id: details
     attributes:
