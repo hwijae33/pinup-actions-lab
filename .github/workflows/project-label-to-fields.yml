@@ -8,42 +8,37 @@ jobs:
   sync-project-fields:
     runs-on: ubuntu-latest
     env:
-      USER: "hwijae33"         # ★ 개인 프로젝트: USER만 채움
-      PROJECT_NUMBER: "4"
+      USER: "hwijae33"        # ★ 개인 프로젝트: USER만 채움
+      PROJECT_NUMBER: "4"     # ★ 프로젝트 번호 (URL의 마지막 숫자)
       PRIORITY_PREFIX: "priority/"
       COMPONENT_PREFIX: "component/"
       STORYPOINTS_PREFIX: "sp/"
       PRIORITY_MAP: "critical:Critical,high:High,medium:Medium,low:Low"
-      STATUS_FIELD_NAME: "Status"
       PRIORITY_FIELD_NAME: "Priority"
       COMPONENT_FIELD_NAME: "Component"
       STORYPOINTS_FIELD_NAME: "Story Points"
       DUEDATE_FIELD_NAME: "Due Date"
 
     steps:
-      - name: Sync to Project fields
-        uses: actions/github-script@v6
+      - uses: actions/github-script@v6
         with:
-          # ★ 필수: PAT 시크릿을 github-token으로 주입
+          # PAT 시크릿 주입 (Projects: RW / Issues/PR: Read 권한)
           github-token: ${{ secrets.PROJECTS_TOKEN }}
           script: |
-            // 외부 require 금지 (MODULE_NOT_FOUND 방지)
-            // const { graphql } = require('@octokit/graphql');
-
-            // PAT로 인증된 GraphQL 클라이언트
             const gql = github.graphql;
 
-            const isOrg = !!process.env.ORG && process.env.ORG !== "your-org";
-            const ownerVar = isOrg ? { org: process.env.ORG } : { login: process.env.USER };
+            const userLogin = (process.env.USER || "").trim();
             const projectNumber = Number(process.env.PROJECT_NUMBER);
+            if (!userLogin) { core.setFailed("USER is empty"); return; }
 
-            const projQuery = `
-              query($org:String, $login:String, $num:Int!) {
-                ${isOrg ? 'organization(login:$org)' : 'user(login:$login)'} {
+            // 1) 사용자 프로젝트/필드 조회  ← ★ $login:String! (non-null), $org 제거
+            const { user } = await gql(`
+              query($login:String!, $num:Int!) {
+                user(login:$login){
                   projectV2(number:$num){
                     id
                     fields(first:100){
-                      nodes {
+                      nodes{
                         ... on ProjectV2FieldCommon { id name }
                         ... on ProjectV2SingleSelectField { id name options { id name } }
                       }
@@ -51,16 +46,13 @@ jobs:
                   }
                 }
               }
-            `;
-            const projData = await gql(projQuery, { ...(ownerVar), num: projectNumber });
-            const container = (isOrg ? projData.organization : projData.user);
-            if (!container?.projectV2) {
-              core.setFailed('Project not found. Check ORG/USER/PROJECT_NUMBER.');
-              return;
-            }
-            const project = container.projectV2;
+            `, { login: userLogin, num: projectNumber });
 
-            // 이슈 노드
+            if (!user?.projectV2) { core.setFailed("Project not found. Check USER/PROJECT_NUMBER."); return; }
+            const project = user.projectV2;
+            const fields = project.fields.nodes;
+
+            // 2) 이슈 노드 조회
             const issueNodeRes = await gql(`
               query($id:ID!){
                 node(id:$id){
@@ -71,10 +63,11 @@ jobs:
                     projectItems(first:30){ nodes { id project { id } } }
                   }
                 }
-              }`, { id: context.payload.issue.node_id });
+              }
+            `, { id: context.payload.issue.node_id });
             const issueNode = issueNodeRes.node;
 
-            // 프로젝트 아이템 없으면 추가
+            // 3) 프로젝트 아이템 없으면 추가
             let itemId = issueNode.projectItems.nodes.find(n => n.project.id === project.id)?.id;
             if (!itemId) {
               const addRes = await gql(`
@@ -82,28 +75,29 @@ jobs:
                   addProjectV2ItemById(input:{projectId:$pid, contentId:$content}) {
                     item { id }
                   }
-                }`, { pid: project.id, content: issueNode.id });
+                }
+              `, { pid: project.id, content: issueNode.id });
               itemId = addRes.addProjectV2ItemById.item.id;
             }
 
-            // 필드 핸들러들...
-            const fields = project.fields.nodes;
+            // 4) 필드 레퍼런스
             const findField = (name) => fields.find(f => f && f.name === name);
-            const priorityField = findField(process.env.PRIORITY_FIELD_NAME);
+            const priorityField  = findField(process.env.PRIORITY_FIELD_NAME);
             const componentField = findField(process.env.COMPONENT_FIELD_NAME);
-            const spField = findField(process.env.STORYPOINTS_FIELD_NAME);
-            const dueField = findField(process.env.DUEDATE_FIELD_NAME);
+            const spField        = findField(process.env.STORYPOINTS_FIELD_NAME);
+            const dueField       = findField(process.env.DUEDATE_FIELD_NAME);
 
+            // 5) 라벨 파싱
             const labels = (issueNode.labels?.nodes || []).map(l => l.name);
             const parseMap = (s) => Object.fromEntries(
-              s.split(',').map(e => e.trim()).filter(Boolean).map(e => {
+              (s||"").split(',').map(e => e.trim()).filter(Boolean).map(e => {
                 const [k,v] = e.split(':').map(x=>x.trim()); return [k, v];
               })
             );
 
             // Priority
             if (priorityField?.options?.length) {
-              const prefix = process.env.PRIORITY_PREFIX.toLowerCase();
+              const prefix = (process.env.PRIORITY_PREFIX || "").toLowerCase();
               const map = parseMap(process.env.PRIORITY_MAP);
               const prioLabel = labels.find(l => l.toLowerCase().startsWith(prefix));
               if (prioLabel) {
@@ -117,14 +111,14 @@ jobs:
                         projectId:$pid, itemId:$item, fieldId:$fid,
                         value:{ singleSelectOptionId:$opt }
                       }){ projectV2Item { id } }
-                  }`, { pid: project.id, item: itemId, fid: priorityField.id, opt: optionId });
+                  `, { pid: project.id, item: itemId, fid: priorityField.id, opt: optionId });
                 }
               }
             }
 
             // Component
             if (componentField?.options?.length) {
-              const prefix = process.env.COMPONENT_PREFIX.toLowerCase();
+              const prefix = (process.env.COMPONENT_PREFIX || "").toLowerCase();
               const compLabel = labels.find(l => l.toLowerCase().startsWith(prefix));
               if (compLabel) {
                 const name = compLabel.slice(prefix.length);
@@ -136,14 +130,14 @@ jobs:
                         projectId:$pid, itemId:$item, fieldId:$fid,
                         value:{ singleSelectOptionId:$opt }
                       }){ projectV2Item { id } }
-                  }`, { pid: project.id, item: itemId, fid: componentField.id, opt: opt.id });
+                  `, { pid: project.id, item: itemId, fid: componentField.id, opt: opt.id });
                 }
               }
             }
 
             // Story Points
             if (spField) {
-              const prefix = process.env.STORYPOINTS_PREFIX.toLowerCase();
+              const prefix = (process.env.STORYPOINTS_PREFIX || "").toLowerCase();
               const spLabel = labels.find(l => l.toLowerCase().startsWith(prefix));
               if (spLabel) {
                 const num = Number(spLabel.slice(prefix.length));
@@ -154,7 +148,7 @@ jobs:
                         projectId:$pid, itemId:$item, fieldId:$fid,
                         value:{ number:$val }
                       }){ projectV2Item { id } }
-                  }`, { pid: project.id, item: itemId, fid: spField.id, val: num });
+                  `, { pid: project.id, item: itemId, fid: spField.id, val: num });
                 }
               }
             }
@@ -167,5 +161,5 @@ jobs:
                     projectId:$pid, itemId:$item, fieldId:$fid,
                     value:{ date:$date }
                   }){ projectV2Item { id } }
-              }`, { pid: project.id, item: itemId, fid: dueField.id, date: issueNode.milestone.dueOn });
+              `, { pid: project.id, item: itemId, fid: dueField.id, date: issueNode.milestone.dueOn });
             }
