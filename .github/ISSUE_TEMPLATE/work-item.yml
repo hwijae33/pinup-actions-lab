@@ -1,4 +1,4 @@
-name: Work item (Tables)
+name: Work Item (Tables)
 description: 테이블(도메인) 단위 운영 작업 생성
 title: "[Task] "
 labels: []
@@ -8,8 +8,8 @@ body:
     id: priority
     attributes:
       label: Priority
+      description: 작업의 비즈니스 임팩트/긴급도
       options: [Critical, High, Medium, Low]
-      default: 1   # 기본 High
 
   - type: dropdown
     id: component
@@ -35,7 +35,7 @@ body:
     id: affected_tables
     attributes:
       label: Affected Tables
-      description: 영향 받는 테이블을 모두 선택하세요 (복수 선택)
+      description: 함께 영향을 받는 테이블(복수 선택)
       options:
         - label: comments
         - label: faqs
@@ -55,23 +55,21 @@ body:
     id: area
     attributes:
       label: Area
-      description: 기술 영역을 선택하세요
-      options: [Frontend, Backend, DevOps, Data]
-      default: 0
+      description: 기술 영역
+      options: [Frontend, Backend, DevOps, Data, QA]
 
   - type: dropdown
     id: story_points
     attributes:
       label: Story Points
-      options: ["1","2","3","5","7","10"]
-      default: 2
+      description: 작업 규모/복잡도 (피보나치)
+      options: ["1","2","3","5","8","13"]
 
   - type: dropdown
     id: due_year
     attributes:
       label: Due Year
-      options: ["2025","2026","2027","2028","2029"]
-      default: 0
+      options: ["2025","2026","2027"]
 
   - type: dropdown
     id: due_month
@@ -92,13 +90,14 @@ body:
     id: review_status
     attributes:
       label: Review Status
-    options: ["Pending","In Review","Approved","Changes Requested"]
+      description: 코드/기획 리뷰 상태
+      options: [Pending, In Review, Approved, Changes Requested]
 
   - type: textarea
     id: details
     attributes:
       label: Details
-      description: 무엇을/왜/어떻게 (해당 테이블 기준으로 구체적으로)
-      placeholder: 예) 스키마/인덱스/쿼리/재현 스텝/기대동작
+      description: 무엇/왜/어떻게 (재현 스텝, 로그/쿼리, 기대동작, 영향 범위 등)
+      placeholder: 내용을 입력하세요
     validations:
       required: true
