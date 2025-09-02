@@ -106,7 +106,7 @@ jobs:
                 const optionId = priorityField.options.find(o => o.name === optionName)?.id;
                 if (optionId) {
                   await gql(`
-                    mutation($pid:ID!,$item:ID!,$fid:ID!,$opt:ID!){
+                    mutation($pid:ID!,$item:ID!,$fid:ID!,$opt:String!){
                       updateProjectV2ItemFieldValue(input:{
                         projectId:$pid, itemId:$item, fieldId:$fid,
                         value:{ singleSelectOptionId:$opt }
@@ -128,7 +128,7 @@ jobs:
                 const opt = componentField.options.find(o => o.name.toLowerCase() === name.toLowerCase());
                 if (opt) {
                   await gql(`
-                    mutation($pid:ID!,$item:ID!,$fid:ID!,$opt:ID!){
+                    mutation($pid:ID!,$item:ID!,$fid:ID!,$opt:String!){
                       updateProjectV2ItemFieldValue(input:{
                         projectId:$pid, itemId:$item, fieldId:$fid,
                         value:{ singleSelectOptionId:$opt }
