@@ -55,3 +55,8 @@ node_modules
 !.github/
 !.github/workflows/
 !.github/workflows/*
+
+### ISSUE_TEMPLATE 출력 디렉토리 ###
+!.github/
+!.github/ISSUE_TEMPLATE/
+!.github/ISSUE_TEMPLATE/*
