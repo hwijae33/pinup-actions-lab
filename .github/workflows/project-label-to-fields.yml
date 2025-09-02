@@ -8,8 +8,8 @@ jobs:
   sync-project-fields:
     runs-on: ubuntu-latest
     env:
-      ORG: your-org        # Org 프로젝트면 값 채우고 USER는 빈 문자열
-      USER: ""             # 개인 프로젝트면 ORG="" 로 두고 USER=your-username
+      ORG: your-org         # Org 프로젝트면 ORG=실제조직, USER=""
+      USER: ""              # 개인 프로젝트면 ORG="" , USER=your-username
       PROJECT_NUMBER: "1"
       PRIORITY_PREFIX: "priority/"
       COMPONENT_PREFIX: "component/"
@@ -21,15 +21,18 @@ jobs:
       STORYPOINTS_FIELD_NAME: "Story Points"
       DUEDATE_FIELD_NAME: "Due Date"
 
-    # ↑ GH_TOKEN은 이제 필요 없음. (남겨둬도 무해하지만 안 씀)
-
     steps:
-      - uses: actions/github-script@v6
+      - name: Sync to Project fields
+        uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}   # ★ 반드시 추가
+          # ★ 필수: PAT 시크릿을 github-token으로 주입
+          github-token: ${{ secrets.PROJECTS_TOKEN }}
           script: |
-            // 외부 require 금지: const { graphql } = require('@octokit/graphql'); <-- 제거
-            const gql = github.graphql; // PAT로 인증된 GraphQL 클라이언트
+            // 외부 require 금지 (MODULE_NOT_FOUND 방지)
+            // const { graphql } = require('@octokit/graphql');
+
+            // PAT로 인증된 GraphQL 클라이언트
+            const gql = github.graphql;
 
             const isOrg = !!process.env.ORG && process.env.ORG !== "your-org";
             const ownerVar = isOrg ? { org: process.env.ORG } : { login: process.env.USER };
@@ -44,7 +47,6 @@ jobs:
                       nodes {
                         ... on ProjectV2FieldCommon { id name }
                         ... on ProjectV2SingleSelectField { id name options { id name } }
-                        ... on ProjectV2IterationField { id name configuration { iterations { id title startDate } } }
                       }
                     }
                   }
@@ -54,20 +56,12 @@ jobs:
             const projData = await gql(projQuery, { ...(ownerVar), num: projectNumber });
             const container = (isOrg ? projData.organization : projData.user);
             if (!container?.projectV2) {
-              core.setFailed('Project not found. Check ORG/USER and PROJECT_NUMBER.');
+              core.setFailed('Project not found. Check ORG/USER/PROJECT_NUMBER.');
               return;
             }
             const project = container.projectV2;
-            const fields = project.fields.nodes;
 
-            const findField = (name) => fields.find(f => f && f.name === name);
-            const priorityField = findField(process.env.PRIORITY_FIELD_NAME);
-            const componentField = findField(process.env.COMPONENT_FIELD_NAME);
-            const spField = findField(process.env.STORYPOINTS_FIELD_NAME);
-            const dueField = findField(process.env.DUEDATE_FIELD_NAME);
-
-            // 이슈 노드 조회
-            const issue = context.payload.issue;
+            // 이슈 노드
             const issueNodeRes = await gql(`
               query($id:ID!){
                 node(id:$id){
@@ -78,7 +72,7 @@ jobs:
                     projectItems(first:30){ nodes { id project { id } } }
                   }
                 }
-              }`, { id: issue.node_id });
+              }`, { id: context.payload.issue.node_id });
             const issueNode = issueNodeRes.node;
 
             // 프로젝트 아이템 없으면 추가
@@ -93,7 +87,14 @@ jobs:
               itemId = addRes.addProjectV2ItemById.item.id;
             }
 
-            // 라벨 파싱
+            // 필드 핸들러들...
+            const fields = project.fields.nodes;
+            const findField = (name) => fields.find(f => f && f.name === name);
+            const priorityField = findField(process.env.PRIORITY_FIELD_NAME);
+            const componentField = findField(process.env.COMPONENT_FIELD_NAME);
+            const spField = findField(process.env.STORYPOINTS_FIELD_NAME);
+            const dueField = findField(process.env.DUEDATE_FIELD_NAME);
+
             const labels = (issueNode.labels?.nodes || []).map(l => l.name);
             const parseMap = (s) => Object.fromEntries(
               s.split(',').map(e => e.trim()).filter(Boolean).map(e => {
