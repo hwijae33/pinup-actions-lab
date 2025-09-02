@@ -7,9 +7,9 @@ body:
     id: priority
     attributes:
       label: Priority
-      options: [🔴 Critical, 🟠 High, 🟡 Medium, 🟢 Low]
+      options: [Critical, High, Medium, Low]
       default: 2
-  - type: single_select
+  - type: dropdown
     id: component
     attributes:
       label: Component
