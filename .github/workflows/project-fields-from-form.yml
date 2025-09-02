@@ -67,6 +67,7 @@ jobs:
             // === 1) 이슈 본문에서 값 파싱 (Issue Forms 섹션) ===
             const issue = context.payload.issue;
             const body = issue.body || "";
+            const { owner, repo } = context.repo;
 
             const pick = (label) => {
               const re = new RegExp(`^###\\s*${label}\\s*\\n+([\\s\\S]*?)(?=\\n###|$)`, "m");
@@ -181,3 +182,26 @@ jobs:
                 ops.push(`🔁 Review Status → ${process.env.REVIEW_DEFAULT}`);
               }
             }
+
+            // === 4) 세로 요약 댓글 달기 (여기에 위치) ===
+            const summaryMd = [
+              "### 🧾 Work item summary",
+              "",
+              `- **Priority**: ${vPriority || "-"}`,
+              `- **Component**: ${vComponent || "-"}`,
+              `- **Story Points**: ${Number.isNaN(vSP) ? "-" : vSP}`,
+              `- **Due Date**: ${iso || "-"}`
+            ].join("\n");
+
+            await github.rest.issues.createComment({
+              owner, repo,
+              issue_number: issue.number,
+              body: summaryMd,
+            });
+
+            // === 5) 액션 Job summary (Actions 탭에서 보기 좋게) ===
+            const summary = ops.length ? ops.join('\n') : 'No field changes.';
+            console.log(summary);
+            await core.summary.addHeading('Project sync result')
+              .addRaw(summary.replace(/\n/g,'<br/>'))
+              .write();
