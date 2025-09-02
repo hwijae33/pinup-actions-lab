@@ -2,9 +2,7 @@ package kr.co.pinup.members.controller;
 
 import jakarta.servlet.http.HttpSession;
 import kr.co.pinup.custom.loginMember.LoginMember;
-import kr.co.pinup.members.model.dto.MemberInfo;
-import kr.co.pinup.members.model.dto.MemberRequest;
-import kr.co.pinup.members.model.dto.MemberResponse;
+import kr.co.pinup.members.model.dto.*;
 import kr.co.pinup.members.service.MemberService;
 import kr.co.pinup.oauth.OAuthProvider;
 import lombok.RequiredArgsConstructor;

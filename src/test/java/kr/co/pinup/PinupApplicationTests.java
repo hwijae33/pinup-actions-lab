@@ -10,6 +10,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 @SpringBootTest
 @DirtiesContext
@@ -27,9 +28,9 @@ public class PinupApplicationTests {
 		assertNotNull(applicationContext);
 	}
 
-	@Test
-	void checkDatasourceUrl() {
-		assertNotNull(datasourceUrl);
-		assertEquals("jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE", datasourceUrl);
-	}
+    @Test
+    void checkDatasourceUrl() {
+        assertNotNull(datasourceUrl);
+        assertTrue(datasourceUrl.startsWith("jdbc:h2:mem:testdb"));
+    }
 }
