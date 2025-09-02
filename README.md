@@ -23,6 +23,7 @@
 #### 📆 개발 기간
 2025.01.06 ~
 
+
 ## 🧑🏻‍💻 팀원 소개
 
 |                                                                                                                                    [🏋🏿‍♀️ 휘](https://github.com/hwijae33)                                                                                                                                    |                                                                                                                                                                   [🧑🏻‍💻 제로](https://github.com/whoamixzerone)                                                                                                                                                                   |                                                                                                                                                                   [🫦 설](https://github.com/POKITONG)                                                                                                                                                                   |                                                                                                                                   [🐶 희도](https://github.com/kimdohee58)                                                                                                                                   |
