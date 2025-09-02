@@ -13,7 +13,7 @@ jobs:
   add:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/add-to-project@v1
+      - uses: actions/add-to-project@v1.0.2
         with:
           # ↓ 본인 프로젝트 URL로 교체
           project-url: https://github.com/users/hwijae33/projects/1
