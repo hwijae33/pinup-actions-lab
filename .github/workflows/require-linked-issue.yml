@@ -1,0 +1,15 @@
+name: Require linked issue
+on:
+  pull_request: { types: [opened, edited, synchronize] }
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.PROJECTS_TOKEN }}
+          script: |
+            const body = context.payload.pull_request.body || "";
+            if (!/\b(close[sd]?|fix(e[sd])?|resolve[sd]?)\s+#\d+/i.test(body)) {
+              core.setFailed("PR 본문에 연결 이슈(Closes #123)가 필요합니다.");
+            }

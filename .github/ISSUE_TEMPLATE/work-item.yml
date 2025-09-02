@@ -3,13 +3,13 @@ description: 프로젝트 작업 생성 (라벨 없이 필드로 관리)
 title: "[Task] "
 labels: []
 body:
-  - type: dropdown
+  - type: single_select
     id: priority
     attributes:
       label: Priority
-      options: [Critical, High, Medium, Low]
+      options: [🔴 Critical, 🟠 High, 🟡 Medium, 🟢 Low]
       default: 2
-  - type: dropdown
+  - type: single_select
     id: component
     attributes:
       label: Component
