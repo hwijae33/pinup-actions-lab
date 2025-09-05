@@ -65,26 +65,42 @@ body:
       description: 작업 규모/복잡도 (피보나치)
       options: ["1","2","3","4","5"]
 
-  - type: dropdown
-    id: due_year
+#  - type: dropdown
+#    id: due_year
+#    attributes:
+#      label: Due Year
+#      options: ["2025","2026","2027"]
+#
+#  - type: dropdown
+#    id: due_month
+#    attributes:
+#      label: Due Month
+#      options: ["01","02","03","04","05","06","07","08","09","10","11","12"]
+#
+#  - type: dropdown
+#    id: due_day
+#    attributes:
+#      label: Due Day
+#      options:
+#        ["01","02","03","04","05","06","07","08","09","10",
+#         "11","12","13","14","15","16","17","18","19","20",
+#         "21","22","23","24","25","26","27","28","29","30","31"]
+
+  - type: input
+    id: due_date
     attributes:
-      label: Due Year
-      options: ["2025","2026","2027"]
+      label: Due Date
+      description: YYYY-MM-DD 형식으로 입력
+      placeholder: 2025-09-12
+    validations:
+      required: false
 
   - type: dropdown
-    id: due_month
+    id: due_in
     attributes:
-      label: Due Month
-      options: ["01","02","03","04","05","06","07","08","09","10","11","12"]
-
-  - type: dropdown
-    id: due_day
-    attributes:
-      label: Due Day
-      options:
-        ["01","02","03","04","05","06","07","08","09","10",
-         "11","12","13","14","15","16","17","18","19","20",
-         "21","22","23","24","25","26","27","28","29","30","31"]
+      label: Due In
+      description: 선택 시 워크플로가 실제 날짜로 변환
+      options: ["Today", "+1d", "+3d", "Next Monday", "+1w", "+2w", "+1m"]
 
   - type: dropdown
     id: review_status
