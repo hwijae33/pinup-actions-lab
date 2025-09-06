@@ -8,30 +8,30 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     env:
-      # === 개인 프로젝트용 설정 (USER만! ORG는 비워두세요) ===
-      USER: "hwijae33"            # ← 본인 사용자
-      PROJECT_NUMBER: "4"         # ← 본인 개인 Projects 번호
+      # === 개인 프로젝트 설정 ===
+      USER: "hwijae33"
+      PROJECT_NUMBER: "4"
 
-      # === Projects 필드명 (보드의 필드명과 철자 동일) ===
-      PRIORITY_FIELD_NAME: "Priority"
-      COMPONENT_FIELD_NAME: "Component"
-      CHANGE_TYPE_FIELD_NAME: "Change Type"
-      DUEDATE_FIELD_NAME: "Due Date"
-      # REVIEW_FIELD_NAME: "Review Status"   # 쓰면 주석 해제
-      # REVIEW_DEFAULT: "Pending"
+      # === Projects 필드명 (철자 정확히 일치) ===
+      PRIORITY_FIELD_NAME: "Priority"       # Single-select
+      COMPONENT_FIELD_NAME: "Component"     # Single-select
+      CHANGE_TYPE_FIELD_NAME: "Change Type" # Single-select
+      DUEDATE_FIELD_NAME: "Due Date"        # Date
+      SUMMARY_FIELD_NAME: "Summary"         # Text (신규)
+      DDAY_FIELD_NAME: "D-Day"              # Text (신규)
 
     steps:
       - uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.PROJECTS_TOKEN }}   # Projects write 권한 있는 PAT/앱 토큰
+          github-token: ${{ secrets.PROJECTS_TOKEN }}
           script: |
             const gql = github.graphql;
             const ops = [];
 
-            // === 0) 프로젝트 메타 조회 (USER 전용) ===
+            // === 0) 프로젝트 메타 조회 ===
             const userLogin = (process.env.USER || "").trim();
             const projectNumber = Number(process.env.PROJECT_NUMBER || "0");
-            if (!userLogin)   { core.setFailed("USER is empty"); return; }
+            if (!userLogin)    { core.setFailed("USER is empty"); return; }
             if (!projectNumber){ core.setFailed("PROJECT_NUMBER is empty/invalid"); return; }
 
             const resUser = await gql(`
@@ -59,7 +59,8 @@ jobs:
             const fComponent  = byName(process.env.COMPONENT_FIELD_NAME);
             const fChangeType = byName(process.env.CHANGE_TYPE_FIELD_NAME);
             const fDue        = byName(process.env.DUEDATE_FIELD_NAME);
-            const fReview     = byName(process.env.REVIEW_FIELD_NAME);
+            const fSummary    = byName(process.env.SUMMARY_FIELD_NAME);
+            const fDDay       = byName(process.env.DDAY_FIELD_NAME);
 
             // === 1) 이슈 폼 본문 파싱 ===
             const issue = context.payload.issue;
@@ -86,10 +87,9 @@ jobs:
                   }
                 }
               }`, { id: issue.node_id });
-
             const issueNode = resIssue.node;
-            let itemId = issueNode.projectItems.nodes.find(n => n.project.id === project.id)?.id;
 
+            let itemId = issueNode.projectItems.nodes.find(n => n.project.id === project.id)?.id;
             if (!itemId) {
               const add = await gql(`
                 mutation($pid:ID!,$content:ID!){
@@ -103,26 +103,24 @@ jobs:
               ops.push(`✓ Already in project "${project.title}" (Issue #${issueNode.number})`);
             }
 
-            // === 3) Projects의 현재 Due Date 읽기 (UI에서 수정한 값 존중) ===
+            // === 3) 현재 Due Date 읽기 (UI 수정 존중) ===
             let currentDue = "";
             if (fDue) {
               const resVals = await gql(`
-              query($item: ID!) {
-                node(id: $item) {
-                  ... on ProjectV2Item {
-                  fieldValues(first: 50) {
-                    nodes {
-                    ... on ProjectV2ItemFieldDateValue {
-                    date
-                    field {
-                    ... on ProjectV2FieldCommon { id name }   # 인터페이스/구현체에 fragment로 선택
+                query($item: ID!) {
+                  node(id: $item) {
+                    ... on ProjectV2Item {
+                      fieldValues(first: 50) {
+                        nodes {
+                          ... on ProjectV2ItemFieldDateValue {
+                            date
+                            field { ... on ProjectV2FieldCommon { id name } }
+                          }
+                        }
+                      }
                     }
-                    }
-                    }
-                }
-                }
-              }
-            }`, { item: itemId });
+                  }
+                }`, { item: itemId });
 
               currentDue = resVals?.node?.fieldValues?.nodes
                 ?.find(n => n?.field?.id === fDue?.id)?.date || "";
@@ -140,7 +138,7 @@ jobs:
               ops.push(`ℹ️ Due Date empty → defaulting to ${isoDue} (KST today)`);
             }
 
-            // === 5) 필드 업데이트 ===
+            // === 5) 공통 업데이트 함수 ===
             const updateSelect = async (field, valueText, label) => {
               if (!field?.options?.length || !valueText) return;
               const opt = field.options.find(o => o.name === valueText);
@@ -167,10 +165,22 @@ jobs:
               ops.push(`🔁 ${label} → ${dateIso}`);
             };
 
+            const updateText = async (field, text, label) => {
+              if (!field || !text) return;
+              await gql(`
+                mutation($pid:ID!,$item:ID!,$fid:ID!,$txt:String!){
+                  updateProjectV2ItemFieldValue(input:{
+                    projectId:$pid, itemId:$item, fieldId:$fid,
+                    value:{ text:$txt }
+                  }){ projectV2Item { id } }
+                }`, { pid: project.id, item: itemId, fid: field.id, txt: text });
+              ops.push(`🔁 ${label} → ${text}`);
+            };
+
+            // === 6) 필드 쓰기 (기본 4종) ===
             await updateSelect(fPriority,   vPriority,   "Priority");
             await updateSelect(fComponent,  vComponent,  "Component");
             await updateSelect(fChangeType, vChangeType, "Change Type");
-
             if (isoDue && isoDue !== currentDue) {
               await updateDate(fDue, isoDue, "Due Date");
             } else if (isoDue && isoDue === currentDue) {
@@ -179,9 +189,52 @@ jobs:
               ops.push(`✓ Due Date kept from project (${currentDue})`);
             }
 
-            if (fReview?.options?.length) {
-              const target = process.env.REVIEW_DEFAULT || "";
-              if (target) await updateSelect(fReview, target, "Review Status");
+            // === 7) 가독성 보강: Summary / D-Day 채우기 ===
+            // pretty date (KST)
+            function prettyKST(iso){
+              if (!iso) return "";
+              const dt = new Date(iso+"T00:00:00+09:00");
+              return new Intl.DateTimeFormat("en-US", {
+                month:"short", day:"numeric", year:"numeric", timeZone:"Asia/Seoul"
+              }).format(dt); // e.g., "Nov 6, 2025"
+            }
+            // D-day 계산 (KST)
+            function diffDaysKST(iso){
+              if (!iso) return null;
+              const tz = "Asia/Seoul";
+              const todayStr = new Date().toLocaleString("sv-SE", { timeZone: tz }).slice(0,10);
+              const [ty,tm,td] = todayStr.split("-").map(Number);
+              const [y,m,d]    = iso.split("-").map(Number);
+              const t0 = Date.UTC(ty, tm-1, td);
+              const d0 = Date.UTC(y, m-1, d);
+              return Math.round((d0 - t0) / 86400000);
+            }
+            function ddayLabel(n){
+              if (n === 0) return "D-Day";
+              return n > 0 ? `D-${n}` : `D+${Math.abs(n)}`;
+            }
+            const isoForBadge = isoDue || currentDue || "";
+            const dDiff = isoForBadge ? diffDaysKST(isoForBadge) : null;
+
+            // 이모지 매핑
+            const prMap = { Critical:"🔥 Critical", High:"🚨 High", Medium:"⚖️ Medium", Low:"💤 Low" };
+            const ctMap = { feat:"🌟 feat", fix:"🛠 fix", refactor:"♻️ refactor", docs:"📝 docs", perf:"⚡ perf",
+                            chore:"🧹 chore", test:"✅ test", ci:"🤖 ci", build:"📦 build", revert:"↩️ revert" };
+
+            const parts = [];
+            if (vChangeType) parts.push(ctMap[vChangeType] || `🏷 ${vChangeType}`);
+            if (vComponent)  parts.push(`🧩 ${vComponent}`);
+            if (vPriority)   parts.push(prMap[vPriority] || vPriority);
+            if (isoForBadge) parts.push(`⏰ ${isoForBadge} (${ddayLabel(dDiff)})`);
+
+            const summaryText = parts.join(" · ");
+
+            if (fSummary && summaryText) {
+              await updateText(fSummary, summaryText, process.env.SUMMARY_FIELD_NAME);
+            }
+            if (fDDay && dDiff !== null) {
+              await updateText(fDDay, ddayLabel(dDiff), process.env.DDAY_FIELD_NAME);
             }
 
+            // === 8) 로그 ===
             console.log(ops.length ? ops.join('\n') : 'No field changes.');

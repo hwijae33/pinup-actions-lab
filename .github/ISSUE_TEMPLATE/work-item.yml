@@ -4,12 +4,22 @@ title: "[Task] "
 labels: []
 
 body:
+  # 상단 요약 안내
+  - type: markdown
+    attributes:
+      value: |
+        ### 🧾 Quick summary
+        아래 4개 메타만 받습니다. 카드에는 **Priority / Component / Change Type / Due Date**만 보이도록 설계되어 있어요.
+
+  # 핵심 메타 4종 —— (워크플로가 동기화)
   - type: dropdown
     id: priority
     attributes:
       label: Priority
       description: 작업의 비즈니스 임팩트/긴급도
       options: [Critical, High, Medium, Low]
+    validations:
+
 
   - type: dropdown
     id: component
@@ -59,7 +69,7 @@ body:
       options: ["feat","fix","refactor","docs","chore","perf","test","ci","build","revert"]
     #docs : 문서만 수정/chore : 유지보수/잡무(코드 로직 변화 없음)/perf : 성능 개선/test : 테스트 추가/수정/ci, build : 파이프라인/빌드 변경/revert : 변경 되돌리기
     validations:
-      required: true
+
 
   - type: input
     id: due_date
@@ -68,13 +78,25 @@ body:
       description: YYYY-MM-DD 형식으로 입력
       placeholder: "2025-09-12"
     validations:
-      required: false
 
+
+  # 구분선
+  - type: markdown
+    attributes:
+      value: "---"
+
+  # 본문 — 카드에는 안 보이고 이슈 상세에서만 읽힘
   - type: textarea
     id: details
     attributes:
       label: Details
       description: 무엇/왜/어떻게 (재현 스텝, 로그/쿼리, 기대동작, 영향 범위 등)
-      placeholder: 내용을 입력하세요
+      placeholder: |
+        - 배경:
+        - 기대 동작:
+        - 변경 내용:
+        - 영향 범위/리스크:
+        - 테스트/검증:
+        - 롤백/모니터링:
     validations:
       required: true
