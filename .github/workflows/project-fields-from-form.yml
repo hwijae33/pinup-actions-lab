@@ -7,23 +7,27 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write   # 코멘트 업서트용 (PAT이면 영향 없음)
+
     env:
       # === 개인 프로젝트 설정 ===
       USER: "hwijae33"
       PROJECT_NUMBER: "4"
 
-      # === Projects 필드명 (철자 정확히 일치) ===
-      PRIORITY_FIELD_NAME: "Priority"       # Single-select
-      COMPONENT_FIELD_NAME: "Component"     # Single-select
-      CHANGE_TYPE_FIELD_NAME: "Change Type" # Single-select
-      DUEDATE_FIELD_NAME: "Due Date"        # Date
-      SUMMARY_FIELD_NAME: "Summary"         # Text (신규)
-      DDAY_FIELD_NAME: "D-Day"              # Text (신규)
+      # === Projects 필드명 (철자 완전 일치) ===
+      PRIORITY_FIELD_NAME: "Priority"        # Single-select
+      COMPONENT_FIELD_NAME: "Component"      # Single-select
+      CHANGE_TYPE_FIELD_NAME: "Change Type"  # Single-select
+      DUEDATE_FIELD_NAME: "Due Date"         # Date
+      SUMMARY_FIELD_NAME: "Summary"          # Text
+      DDAY_FIELD_NAME: "D-Day"               # Text
 
     steps:
       - uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.PROJECTS_TOKEN }}
+          github-token: ${{ secrets.PROJECTS_TOKEN }}   # Projects write/Repo 권한 있는 토큰
           script: |
             const gql = github.graphql;
             const ops = [];
@@ -43,6 +47,8 @@ jobs:
                       nodes{
                         ... on ProjectV2FieldCommon       { id name }
                         ... on ProjectV2SingleSelectField { id name options { id name } }
+                        ... on ProjectV2DateField         { id name }
+                        ... on ProjectV2TextField         { id name }
                       }
                     }
                   }
@@ -72,10 +78,16 @@ jobs:
               return m ? m[1].trim() : "";
             };
 
-            const vPriority   = pick("Priority");
-            const vComponent  = pick("Component");
-            const vChangeType = pick("Change Type");
-            const vDue        = pick("Due Date");   // YYYY-MM-DD 기대
+            // 값 정규화: "No response"/"N/A"/"-" 등은 빈값 처리
+            const normalize = (s) => (s || "").trim();
+            const emptyLike = (s) =>
+              !s || /^no response$/i.test(s) || /^n\/a$/i.test(s) || /^none$/i.test(s) || /^-+$/.test(s);
+
+            let vPriority   = normalize(pick("Priority"));
+            let vComponent  = normalize(pick("Component"));
+            let vChangeType = normalize(pick("Change Type"));
+            let vDue        = normalize(pick("Due Date"));
+            if (emptyLike(vDue)) vDue = "";
 
             // === 2) 이슈 → 프로젝트 아이템 보장 ===
             const resIssue = await gql(`
@@ -190,15 +202,6 @@ jobs:
             }
 
             // === 7) 가독성 보강: Summary / D-Day 채우기 ===
-            // pretty date (KST)
-            function prettyKST(iso){
-              if (!iso) return "";
-              const dt = new Date(iso+"T00:00:00+09:00");
-              return new Intl.DateTimeFormat("en-US", {
-                month:"short", day:"numeric", year:"numeric", timeZone:"Asia/Seoul"
-              }).format(dt); // e.g., "Nov 6, 2025"
-            }
-            // D-day 계산 (KST)
             function diffDaysKST(iso){
               if (!iso) return null;
               const tz = "Asia/Seoul";
@@ -209,14 +212,11 @@ jobs:
               const d0 = Date.UTC(y, m-1, d);
               return Math.round((d0 - t0) / 86400000);
             }
-            function ddayLabel(n){
-              if (n === 0) return "D-Day";
-              return n > 0 ? `D-${n}` : `D+${Math.abs(n)}`;
-            }
+            function ddayLabel(n){ if (n===0) return "D-Day"; return n>0 ? `D-${n}` : `D+${Math.abs(n)}`; }
+
             const isoForBadge = isoDue || currentDue || "";
             const dDiff = isoForBadge ? diffDaysKST(isoForBadge) : null;
 
-            // 이모지 매핑
             const prMap = { Critical:"🔥 Critical", High:"🚨 High", Medium:"⚖️ Medium", Low:"💤 Low" };
             const ctMap = { feat:"🌟 feat", fix:"🛠 fix", refactor:"♻️ refactor", docs:"📝 docs", perf:"⚡ perf",
                             chore:"🧹 chore", test:"✅ test", ci:"🤖 ci", build:"📦 build", revert:"↩️ revert" };
@@ -228,13 +228,41 @@ jobs:
             if (isoForBadge) parts.push(`⏰ ${isoForBadge} (${ddayLabel(dDiff)})`);
 
             const summaryText = parts.join(" · ");
+            if (fSummary && summaryText) await updateText(fSummary, summaryText, process.env.SUMMARY_FIELD_NAME);
+            if (fDDay && dDiff !== null) await updateText(fDDay, ddayLabel(dDiff), process.env.DDAY_FIELD_NAME);
 
-            if (fSummary && summaryText) {
-              await updateText(fSummary, summaryText, process.env.SUMMARY_FIELD_NAME);
-            }
-            if (fDDay && dDiff !== null) {
-              await updateText(fDDay, ddayLabel(dDiff), process.env.DDAY_FIELD_NAME);
+            // === 8) 이슈 본문에 마크다운 요약 코멘트 업서트 (lint-friendly) ===
+            const owner = context.repo.owner;
+            const repo  = context.repo.repo;
+            const marker = "<!-- project-sync-summary -->";
+
+            const prettyDate = isoForBadge
+              ? new Intl.DateTimeFormat("en-US", { month:"short", day:"numeric", year:"numeric", timeZone:"Asia/Seoul" })
+                  .format(new Date(isoForBadge+"T00:00:00+09:00"))
+              : "";
+
+            const mdLines = [
+              marker,
+              "### 🧾 Summary",
+              `- **Priority:** ${vPriority || "_(none)_"}`,
+              `- **Component:** ${vComponent || "_(none)_"}`,
+              `- **Change Type:** ${vChangeType || "_(none)_"}`,
+              `- **Due Date:** ${isoForBadge ? `${prettyDate} (${ddayLabel(dDiff)})` : "_(none)_"}`,
+              "",
+              "> 필드는 프로젝트 카드에도 동기화됩니다. Due Date는 폼/프로젝트가 비어 있으면 KST 오늘로 기본 설정됩니다.",
+              marker
+            ];
+            const md = mdLines.join("\n");
+
+            const list = await github.rest.issues.listComments({ owner, repo, issue_number: issue.number, per_page: 100 });
+            const existing = (list.data || []).find(c => (c.body || "").includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: md });
+              ops.push("📝 Updated summary comment");
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body: md });
+              ops.push("📝 Created summary comment");
             }
 
-            // === 8) 로그 ===
+            // === 9) 로그 ===
             console.log(ops.length ? ops.join('\n') : 'No field changes.');
