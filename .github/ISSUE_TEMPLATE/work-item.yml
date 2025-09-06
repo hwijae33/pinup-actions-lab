@@ -4,12 +4,48 @@ title: "[Task] "
 labels: []
 
 body:
-  # 상단 요약 안내
+  # --- 상단 안내/도움말(가독성 향상) ---
   - type: markdown
     attributes:
       value: |
         ### 🧾 Quick summary
-        아래 4개 메타만 받습니다. 카드에는 **Priority / Component / Change Type / Due Date**만 보이도록 설계되어 있어요.
+        이 폼은 카드에 **Priority / Component / Change Type / Due Date** 4가지만 칩으로 보이도록 설계되어 있습니다.  
+        아래 **도움말**을 참고해 각 항목을 빠르게 선택하세요.
+
+        <details>
+        <summary><strong>도움말 펼치기</strong> (Change Type / Component / Priority / Due Date 안내)</summary>
+
+        #### 🏷 Change Type (작업 성격)
+        - `feat` : 신규 기능 추가  
+        - `fix` : 버그 수정  
+        - `refactor` : 내부 구조 개선(동작 동일)  
+        - `docs` : 문서만 수정  
+        - `chore` : 유지보수/도구/종속성 등(로직 영향 없음)  
+        - `perf` : 성능 개선(더 빠름/적은 리소스)  
+        - `test` : 테스트 추가/수정  
+        - `ci` : CI 파이프라인 변경  
+        - `build` : 빌드/패키징/종속성 변경  
+        - `revert` : 변경 되돌리기
+
+        #### 🧩 Component (대표 도메인 선택)
+        - `members`(회원/계정), `posts`(게시글/피드), `comments`(댓글), `post_like`(좋아요), `post_images`(게시글 이미지)  
+        - `notices`(공지), `faqs`(FAQ)  
+        - `stores`(매장), `store_categories`(매장 카테고리), `store_images`(매장 이미지), `store_operating_hour`(영업시간), `locations`(위치/지점)  
+        - `verification`(계정/매장 인증)
+
+        #### 🚨 Priority (영향/긴급도)
+        - **Critical**: 서비스 중단·보안·데이터 손실 등 즉시 대응  
+        - **High**: 핵심 기능 영향, 다수 사용자 영향 → 스프린트 우선 처리  
+        - **Medium**: 일반 개선/경미한 버그  
+        - **Low**: 낮은 영향의 정리 작업
+
+        #### 📅 Due Date (마감일)
+        - 형식: `YYYY-MM-DD` (예: `2025-09-12`)  
+        - **비워두면** 워크플로가 **KST ‘오늘’**로 자동 설정합니다.  
+        - 칸반 카드에는 날짜 칩(예: `Nov 6, 2025`)으로 표시됩니다.  
+        - 카드/사이드패널에서 직접 수정해도 워크플로가 **덮어쓰지 않습니다.**
+
+        </details>
 
   # 핵심 메타 4종 —— (워크플로가 동기화)
   - type: dropdown
