@@ -292,7 +292,7 @@ jobs:
                 for (const sec of SECTIONS) newBody = stripSection(newBody, sec);
                 const notice = [
                   tidyMarker,
-                  "> ℹ️ 이 이슈는 **Projects 필드와 동기화**됩니다. 상단 폼 섹션은 숨기고 아래 **Summary**에서 핵심만 보여줍니다.",
+                  "> ℹ️  상단 폼 섹션은 숨기고 아래 **Summary**에서 핵심만 보여줍니다.",
                   "> 상세 서술은 **Details** 섹션을 사용하세요.",
                   ""
                 ].join("\n");

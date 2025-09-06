@@ -1,6 +1,6 @@
 name: Work Item (Tables)
 description: 테이블(도메인) 단위 운영 작업 생성
-title: "[Task] "
+title: "[Task] issue "
 labels: []
 
 body:
