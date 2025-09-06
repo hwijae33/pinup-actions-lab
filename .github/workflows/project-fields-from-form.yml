@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      issues: write   # 코멘트 업서트용 (PAT이면 영향 없음)
+      issues: write   # 코멘트 업서트용
 
     env:
       # === 개인 프로젝트 설정 ===
@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.PROJECTS_TOKEN }}   # Projects write/Repo 권한 있는 토큰
+          github-token: ${{ secrets.PROJECTS_TOKEN }}
           script: |
             const gql = github.graphql;
             const ops = [];
@@ -47,8 +47,6 @@ jobs:
                       nodes{
                         ... on ProjectV2FieldCommon       { id name }
                         ... on ProjectV2SingleSelectField { id name options { id name } }
-                        ... on ProjectV2DateField         { id name }
-                        ... on ProjectV2TextField         { id name }
                       }
                     }
                   }
@@ -78,7 +76,7 @@ jobs:
               return m ? m[1].trim() : "";
             };
 
-            // 값 정규화: "No response"/"N/A"/"-" 등은 빈값 처리
+            // "No response"/"N/A"/"-" 등은 빈값 처리
             const normalize = (s) => (s || "").trim();
             const emptyLike = (s) =>
               !s || /^no response$/i.test(s) || /^n\/a$/i.test(s) || /^none$/i.test(s) || /^-+$/.test(s);
