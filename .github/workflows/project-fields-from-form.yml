@@ -107,20 +107,22 @@ jobs:
             let currentDue = "";
             if (fDue) {
               const resVals = await gql(`
-                query($item: ID!) {
-                  node(id: $item) {
-                    ... on ProjectV2Item {
-                      fieldValues(first: 50) {
-                        nodes {
-                          ... on ProjectV2ItemFieldDateValue {
-                            date
-                            field { id name }
-                          }
-                        }
-                      }
+              query($item: ID!) {
+                node(id: $item) {
+                  ... on ProjectV2Item {
+                  fieldValues(first: 50) {
+                    nodes {
+                    ... on ProjectV2ItemFieldDateValue {
+                    date
+                    field {
+                    ... on ProjectV2FieldCommon { id name }   # 인터페이스/구현체에 fragment로 선택
                     }
-                  }
-                }`, { item: itemId });
+                    }
+                    }
+                }
+                }
+              }
+            }`, { item: itemId });
 
               currentDue = resVals?.node?.fieldValues?.nodes
                 ?.find(n => n?.field?.id === fDue?.id)?.date || "";
