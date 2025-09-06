@@ -3,13 +3,19 @@ name: Sync issue form to Project fields (USER test)
 on:
   issues:
     types: [opened, edited]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Manual sync target issue number"
+        required: true
+        type: number
 
 jobs:
   sync:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      issues: write   # 코멘트 업서트용
+      issues: write   # 요약 코멘트 업서트용
 
     env:
       # === 개인 프로젝트 설정 ===
@@ -21,13 +27,13 @@ jobs:
       COMPONENT_FIELD_NAME: "Component"      # Single-select
       CHANGE_TYPE_FIELD_NAME: "Change Type"  # Single-select
       DUEDATE_FIELD_NAME: "Due Date"         # Date
-      SUMMARY_FIELD_NAME: "Summary"          # Text
-      DDAY_FIELD_NAME: "D-Day"               # Text
+      SUMMARY_FIELD_NAME: "Summary"          # Text (선택)
+      DDAY_FIELD_NAME: "D-Day"               # Text (선택)
 
     steps:
       - uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.PROJECTS_TOKEN }}
+          github-token: ${{ secrets.PROJECTS_TOKEN }}   # Projects write/Repo 권한 있는 토큰
           script: |
             const gql = github.graphql;
             const ops = [];
@@ -66,28 +72,39 @@ jobs:
             const fSummary    = byName(process.env.SUMMARY_FIELD_NAME);
             const fDDay       = byName(process.env.DDAY_FIELD_NAME);
 
-            // === 1) 이슈 폼 본문 파싱 ===
-            const issue = context.payload.issue;
-            const body  = issue.body || "";
+            // === 1) 대상 이슈 결정 (auto vs manual) ===
+            const owner = context.repo.owner;
+            const repo  = context.repo.repo;
+            let issue;
 
+            if (context.eventName === "workflow_dispatch") {
+              const num = Number(core.getInput("issue_number"));
+              if (!num) { core.setFailed("workflow_dispatch requires issue_number"); return; }
+              const { data } = await github.rest.issues.get({ owner, repo, issue_number: num });
+              issue = data;
+            } else {
+              issue = context.payload.issue;
+            }
+
+            // === 2) 이슈 폼 본문 파싱 ===
+            const body  = issue.body || "";
             const pick = (label) => {
               const re = new RegExp(`^###\\s*${label}\\s*\\n+([\\s\\S]*?)(?=\\n###|$)`, "m");
               const m = body.match(re);
               return m ? m[1].trim() : "";
             };
+            // 마크다운 기호 제거 + 트리밍
+            const stripMd = (s) => (s || "").replace(/(^_+|_+$)/g,"").replace(/[*`~>|]/g,"").trim();
+            // 빈값처럼 보이는 문자열
+            const emptyLike = (s) => !s || /^no response$/i.test(s) || /^n\/a$/i.test(s) || /^none$/i.test(s) || /^-+$/.test(s);
 
-            // "No response"/"N/A"/"-" 등은 빈값 처리
-            const normalize = (s) => (s || "").trim();
-            const emptyLike = (s) =>
-              !s || /^no response$/i.test(s) || /^n\/a$/i.test(s) || /^none$/i.test(s) || /^-+$/.test(s);
-
-            let vPriority   = normalize(pick("Priority"));
-            let vComponent  = normalize(pick("Component"));
-            let vChangeType = normalize(pick("Change Type"));
-            let vDue        = normalize(pick("Due Date"));
+            let vPriority   = stripMd(pick("Priority"));
+            let vComponent  = stripMd(pick("Component"));
+            let vChangeType = stripMd(pick("Change Type"));
+            let vDue        = stripMd(pick("Due Date"));
             if (emptyLike(vDue)) vDue = "";
 
-            // === 2) 이슈 → 프로젝트 아이템 보장 ===
+            // === 3) 이슈 → 프로젝트 아이템 보장 ===
             const resIssue = await gql(`
               query($id:ID!){
                 node(id:$id){
@@ -97,8 +114,8 @@ jobs:
                   }
                 }
               }`, { id: issue.node_id });
-            const issueNode = resIssue.node;
 
+            const issueNode = resIssue.node;
             let itemId = issueNode.projectItems.nodes.find(n => n.project.id === project.id)?.id;
             if (!itemId) {
               const add = await gql(`
@@ -113,7 +130,7 @@ jobs:
               ops.push(`✓ Already in project "${project.title}" (Issue #${issueNode.number})`);
             }
 
-            // === 3) 현재 Due Date 읽기 (UI 수정 존중) ===
+            // === 4) 현재 Due Date 읽기 (UI 수정 존중) ===
             let currentDue = "";
             if (fDue) {
               const resVals = await gql(`
@@ -131,12 +148,10 @@ jobs:
                     }
                   }
                 }`, { item: itemId });
-
-              currentDue = resVals?.node?.fieldValues?.nodes
-                ?.find(n => n?.field?.id === fDue?.id)?.date || "";
+              currentDue = resVals?.node?.fieldValues?.nodes?.find(n => n?.field?.id === fDue?.id)?.date || "";
             }
 
-            // === 4) Due Date 결정 (가드) ===
+            // === 5) Due Date 결정 (폼이 비어 있고 프로젝트도 비면 KST 오늘) ===
             let isoDue = "";
             if (/^\d{4}-\d{2}-\d{2}$/.test(vDue)) {
               const test = new Date(`${vDue}T00:00:00Z`);
@@ -148,7 +163,7 @@ jobs:
               ops.push(`ℹ️ Due Date empty → defaulting to ${isoDue} (KST today)`);
             }
 
-            // === 5) 공통 업데이트 함수 ===
+            // === 6) 공통 업데이트 함수 ===
             const updateSelect = async (field, valueText, label) => {
               if (!field?.options?.length || !valueText) return;
               const opt = field.options.find(o => o.name === valueText);
@@ -162,7 +177,6 @@ jobs:
                 }`, { pid: project.id, item: itemId, fid: field.id, opt: opt.id });
               ops.push(`🔁 ${label} → ${valueText}`);
             };
-
             const updateDate = async (field, dateIso, label) => {
               if (!field || !dateIso) return;
               await gql(`
@@ -174,7 +188,6 @@ jobs:
                 }`, { pid: project.id, item: itemId, fid: field.id, date: dateIso });
               ops.push(`🔁 ${label} → ${dateIso}`);
             };
-
             const updateText = async (field, text, label) => {
               if (!field || !text) return;
               await gql(`
@@ -187,7 +200,7 @@ jobs:
               ops.push(`🔁 ${label} → ${text}`);
             };
 
-            // === 6) 필드 쓰기 (기본 4종) ===
+            // === 7) 필드 쓰기 (기본 4종) ===
             await updateSelect(fPriority,   vPriority,   "Priority");
             await updateSelect(fComponent,  vComponent,  "Component");
             await updateSelect(fChangeType, vChangeType, "Change Type");
@@ -199,7 +212,7 @@ jobs:
               ops.push(`✓ Due Date kept from project (${currentDue})`);
             }
 
-            // === 7) 가독성 보강: Summary / D-Day 채우기 ===
+            // === 8) 가독성 보강: Summary / D-Day ===
             function diffDaysKST(iso){
               if (!iso) return null;
               const tz = "Asia/Seoul";
@@ -229,11 +242,8 @@ jobs:
             if (fSummary && summaryText) await updateText(fSummary, summaryText, process.env.SUMMARY_FIELD_NAME);
             if (fDDay && dDiff !== null) await updateText(fDDay, ddayLabel(dDiff), process.env.DDAY_FIELD_NAME);
 
-            // === 8) 이슈 본문에 마크다운 요약 코멘트 업서트 (lint-friendly) ===
-            const owner = context.repo.owner;
-            const repo  = context.repo.repo;
+            // === 9) 이슈 본문에 요약 코멘트 업서트 ===
             const marker = "<!-- project-sync-summary -->";
-
             const prettyDate = isoForBadge
               ? new Intl.DateTimeFormat("en-US", { month:"short", day:"numeric", year:"numeric", timeZone:"Asia/Seoul" })
                   .format(new Date(isoForBadge+"T00:00:00+09:00"))
@@ -262,5 +272,5 @@ jobs:
               ops.push("📝 Created summary comment");
             }
 
-            // === 9) 로그 ===
+            // === 10) 로그 ===
             console.log(ops.length ? ops.join('\n') : 'No field changes.');
