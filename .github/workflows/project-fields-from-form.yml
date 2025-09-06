@@ -9,25 +9,21 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # === 개인 프로젝트용 설정 (USER만! ORG는 비워두세요) ===
-      USER: "hwijae33"              # ← 지금 테스트용 사용자 로그인
-      PROJECT_NUMBER: "4"           # ← 본인 개인 Projects 번호로 교체
+      USER: "hwijae33"            # ← 본인 사용자
+      PROJECT_NUMBER: "4"         # ← 본인 개인 Projects 번호
 
-      # === 프로젝트 측 필드 이름(Projects에 만든 필드명과 반드시 철자 동일) ===
+      # === Projects 필드명 (보드의 필드명과 철자 동일) ===
       PRIORITY_FIELD_NAME: "Priority"
       COMPONENT_FIELD_NAME: "Component"
-      AREA_FIELD_NAME: "Area"
-      STORYPOINTS_FIELD_NAME: "Story Points"
+      CHANGE_TYPE_FIELD_NAME: "Change Type"
       DUEDATE_FIELD_NAME: "Due Date"
-      TABLES_FIELD_NAME: "Tables"   # (있으면) 체크박스 합친 텍스트 저장
-
-      # (옵션) Review Status 기본값
-      REVIEW_FIELD_NAME: "Review Status"
-      REVIEW_DEFAULT: "Pending"
+      # REVIEW_FIELD_NAME: "Review Status"   # 쓰면 주석 해제
+      # REVIEW_DEFAULT: "Pending"
 
     steps:
-      - uses: actions/github-script@v6
+      - uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.PROJECTS_TOKEN }}
+          github-token: ${{ secrets.PROJECTS_TOKEN }}   # Projects write 권한 있는 PAT/앱 토큰
           script: |
             const gql = github.graphql;
             const ops = [];
@@ -38,12 +34,11 @@ jobs:
             if (!userLogin)   { core.setFailed("USER is empty"); return; }
             if (!projectNumber){ core.setFailed("PROJECT_NUMBER is empty/invalid"); return; }
 
-            const { user } = await gql(`
+            const resUser = await gql(`
               query($login:String!, $num:Int!) {
                 user(login:$login){
                   projectV2(number:$num){
-                    id
-                    title
+                    id title
                     fields(first:100){
                       nodes{
                         ... on ProjectV2FieldCommon       { id name }
@@ -55,18 +50,16 @@ jobs:
               }
             `, { login: userLogin, num: projectNumber });
 
-            const project = user?.projectV2;
+            const project = resUser?.user?.projectV2;
             if (!project) { core.setFailed("Project not found. Check USER/PROJECT_NUMBER."); return; }
             const fields = project.fields.nodes;
             const byName = (n) => fields.find(f => f && f.name === n);
 
-            const fPriority  = byName(process.env.PRIORITY_FIELD_NAME);
-            const fComponent = byName(process.env.COMPONENT_FIELD_NAME);
-            const fArea      = byName(process.env.AREA_FIELD_NAME);
-            const fSP        = byName(process.env.STORYPOINTS_FIELD_NAME);
-            const fDue       = byName(process.env.DUEDATE_FIELD_NAME);
-            const fTables    = byName(process.env.TABLES_FIELD_NAME);
-            const fReview    = byName(process.env.REVIEW_FIELD_NAME);
+            const fPriority   = byName(process.env.PRIORITY_FIELD_NAME);
+            const fComponent  = byName(process.env.COMPONENT_FIELD_NAME);
+            const fChangeType = byName(process.env.CHANGE_TYPE_FIELD_NAME);
+            const fDue        = byName(process.env.DUEDATE_FIELD_NAME);
+            const fReview     = byName(process.env.REVIEW_FIELD_NAME);
 
             // === 1) 이슈 폼 본문 파싱 ===
             const issue = context.payload.issue;
@@ -78,34 +71,10 @@ jobs:
               return m ? m[1].trim() : "";
             };
 
-            // 드롭다운/체크박스에 대응 (work-item.yml 라벨과 정확히 일치)
-            const vPriority  = pick("Priority");            // Single-select
-            const vComponent = pick("Component");           // Single-select
-            const vArea      = pick("Area");                // Single-select
-            const vSPraw     = pick("Story Points");        // "1".."13" (문자열)
-            const vDueY      = pick("Due Year");            // "2025"
-            const vDueM      = pick("Due Month");           // "01".."12"
-            const vDueD      = pick("Due Day");             // "01".."31"
-            const vReview    = pick("Review Status");       // Single-select (있으면)
-            const vTablesRaw = pick("Affected Tables");     // 체크박스 섹션 원문
-
-            // 체크박스 섹션에서 체크된 항목만 추출: "- [x] name"
-            const tables = vTablesRaw
-              .split(/\r?\n/)
-              .filter(line => /\-\s*\[x\]\s+/i.test(line))
-              .map(line => line.replace(/^\-\s*\[x\]\s*/i, "").trim());
-            const tablesText = tables.join(", ");
-
-            // 날짜 조합 (유효성 간단 검증)
-            let iso = "";
-            if (vDueY && vDueM && vDueD) {
-              const MM = vDueM.padStart ? vDueM.padStart(2,"0") : vDueM;
-              const DD = vDueD.padStart ? vDueD.padStart(2,"0") : vDueD;
-              const test = new Date(`${vDueY}-${MM}-${DD}T00:00:00Z`);
-              if (!Number.isNaN(test.getTime())) iso = `${vDueY}-${MM}-${DD}`;
-              else ops.push(`⚠️ Due Date invalid: ${vDueY}-${vDueM}-${vDueD}`);
-            }
-            const vSP = Number(vSPraw);
+            const vPriority   = pick("Priority");
+            const vComponent  = pick("Component");
+            const vChangeType = pick("Change Type");
+            const vDue        = pick("Due Date");   // YYYY-MM-DD 기대
 
             // === 2) 이슈 → 프로젝트 아이템 보장 ===
             const resIssue = await gql(`
@@ -117,9 +86,10 @@ jobs:
                   }
                 }
               }`, { id: issue.node_id });
-            const issueNode = resIssue.node;
 
+            const issueNode = resIssue.node;
             let itemId = issueNode.projectItems.nodes.find(n => n.project.id === project.id)?.id;
+
             if (!itemId) {
               const add = await gql(`
                 mutation($pid:ID!,$content:ID!){
@@ -133,7 +103,42 @@ jobs:
               ops.push(`✓ Already in project "${project.title}" (Issue #${issueNode.number})`);
             }
 
-            // === 3) 공통 업데이트 함수들 ===
+            // === 3) Projects의 현재 Due Date 읽기 (UI에서 수정한 값 존중) ===
+            let currentDue = "";
+            if (fDue) {
+              const resVals = await gql(`
+                query($item: ID!) {
+                  node(id: $item) {
+                    ... on ProjectV2Item {
+                      fieldValues(first: 50) {
+                        nodes {
+                          ... on ProjectV2ItemFieldDateValue {
+                            date
+                            field { id name }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }`, { item: itemId });
+
+              currentDue = resVals?.node?.fieldValues?.nodes
+                ?.find(n => n?.field?.id === fDue?.id)?.date || "";
+            }
+
+            // === 4) Due Date 결정 (가드) ===
+            let isoDue = "";
+            if (/^\d{4}-\d{2}-\d{2}$/.test(vDue)) {
+              const test = new Date(`${vDue}T00:00:00Z`);
+              if (!Number.isNaN(test.getTime())) isoDue = vDue;
+              else ops.push(`⚠️ Due Date invalid date: ${vDue}`);
+            } else if (!vDue && !currentDue) {
+              const todayKST = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0,10);
+              isoDue = todayKST;
+              ops.push(`ℹ️ Due Date empty → defaulting to ${isoDue} (KST today)`);
+            }
+
+            // === 5) 필드 업데이트 ===
             const updateSelect = async (field, valueText, label) => {
               if (!field?.options?.length || !valueText) return;
               const opt = field.options.find(o => o.name === valueText);
@@ -148,56 +153,33 @@ jobs:
               ops.push(`🔁 ${label} → ${valueText}`);
             };
 
-            const updateNumber = async (field, num, label) => {
-              if (!field || Number.isNaN(num)) return;
-              await gql(`
-                mutation($pid:ID!,$item:ID!,$fid:ID!,$val:Float!){
-                  updateProjectV2ItemFieldValue(input:{
-                    projectId:$pid, itemId:$item, fieldId:$fid,
-                    value:{ number:$val }
-                  }){ projectV2Item { id } }
-                }`, { pid: project.id, item: itemId, fid: field.id, val: num });
-              ops.push(`🔁 ${label} → ${num}`);
-            };
-
-            const updateDate = async (field, iso, label) => {
-              if (!field || !iso) return;
-              if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) { ops.push(`⚠️ ${label}: invalid "${iso}"`); return; }
+            const updateDate = async (field, dateIso, label) => {
+              if (!field || !dateIso) return;
               await gql(`
                 mutation($pid:ID!,$item:ID!,$fid:ID!,$date:Date!){
                   updateProjectV2ItemFieldValue(input:{
                     projectId:$pid, itemId:$item, fieldId:$fid,
                     value:{ date:$date }
                   }){ projectV2Item { id } }
-                }`, { pid: project.id, item: itemId, fid: field.id, date: iso });
-              ops.push(`🔁 ${label} → ${iso}`);
+                }`, { pid: project.id, item: itemId, fid: field.id, date: dateIso });
+              ops.push(`🔁 ${label} → ${dateIso}`);
             };
 
-            const updateText = async (field, text, label) => {
-              if (!field || !text) return;
-              await gql(`
-                mutation($pid:ID!,$item:ID!,$fid:ID!,$txt:String!){
-                  updateProjectV2ItemFieldValue(input:{
-                    projectId:$pid, itemId:$item, fieldId:$fid,
-                    value:{ text:$txt }
-                  }){ projectV2Item { id } }
-                }`, { pid: project.id, item: itemId, fid: field.id, txt: text });
-              ops.push(`🔁 ${label} → ${text}`);
-            };
+            await updateSelect(fPriority,   vPriority,   "Priority");
+            await updateSelect(fComponent,  vComponent,  "Component");
+            await updateSelect(fChangeType, vChangeType, "Change Type");
 
-            // === 4) 실제 필드 쓰기 ===
-            await updateSelect(fPriority,  vPriority,  "Priority");
-            await updateSelect(fComponent, vComponent, "Component");
-            await updateSelect(fArea,      vArea,      "Area");
-            await updateNumber(fSP,        vSP,        "Story Points");
-            if (iso) await updateDate(fDue, iso,       "Due Date");
-            if (tablesText) await updateText(fTables,  tablesText, "Tables");
+            if (isoDue && isoDue !== currentDue) {
+              await updateDate(fDue, isoDue, "Due Date");
+            } else if (isoDue && isoDue === currentDue) {
+              ops.push(`✓ Due Date unchanged (${currentDue})`);
+            } else if (!isoDue && currentDue) {
+              ops.push(`✓ Due Date kept from project (${currentDue})`);
+            }
+
             if (fReview?.options?.length) {
-              // 폼값 우선, 없으면 기본값
-              const target = vReview || process.env.REVIEW_DEFAULT || "";
+              const target = process.env.REVIEW_DEFAULT || "";
               if (target) await updateSelect(fReview, target, "Review Status");
             }
 
-            // === 5) 액션 요약 콘솔에 출력 ===
-            const summary = ops.length ? ops.join('\n') : 'No field changes.';
-            console.log(summary);
+            console.log(ops.length ? ops.join('\n') : 'No field changes.');

@@ -31,60 +31,35 @@ body:
         - stores
         - verification
 
-  - type: checkboxes
-    id: affected_tables
-    attributes:
-      label: Affected Tables
-      description: 함께 영향을 받는 테이블(복수 선택)
-      options:
-        - label: comments
-        - label: faqs
-        - label: locations
-        - label: members
-        - label: notices
-        - label: post_images
-        - label: post_like
-        - label: posts
-        - label: store_categories
-        - label: store_images
-        - label: store_operating_hour
-        - label: stores
-        - label: verification
+#  - type: checkboxes
+#    id: affected_tables
+#    attributes:
+#      label: Affected Tables
+#      description: 함께 영향을 받는 테이블(복수 선택)
+#      options:
+#        - label: comments
+#        - label: faqs
+#        - label: locations
+#        - label: members
+#        - label: notices
+#        - label: post_images
+#        - label: post_like
+#        - label: posts
+#        - label: store_categories
+#        - label: store_images
+#        - label: store_operating_hour
+#        - label: stores
+#        - label: verification
 
   - type: dropdown
-    id: area
+    id: change_type
     attributes:
-      label: Area
-      description: 기술 영역
-      options: [Frontend, Backend, DevOps, Data]
-
-  - type: dropdown
-    id: story_points
-    attributes:
-      label: Story Points
-      description: 작업 규모/복잡도 (피보나치)
-      options: ["1","2","3","4","5"]
-
-  - type: dropdown
-    id: due_year
-    attributes:
-      label: Due Year
-      options: ["2025","2026","2027"]
-
-  - type: dropdown
-    id: due_month
-    attributes:
-      label: Due Month
-      options: ["01","02","03","04","05","06","07","08","09","10","11","12"]
-
-  - type: dropdown
-    id: due_day
-    attributes:
-      label: Due Day
-      options:
-        ["01","02","03","04","05","06","07","08","09","10",
-         "11","12","13","14","15","16","17","18","19","20",
-         "21","22","23","24","25","26","27","28","29","30","31"]
+      label: Change Type
+      description: 작업 성격
+      options: ["feat","fix","refactor","docs","chore","perf","test","ci","build","revert"]
+    #docs : 문서만 수정/chore : 유지보수/잡무(코드 로직 변화 없음)/perf : 성능 개선/test : 테스트 추가/수정/ci, build : 파이프라인/빌드 변경/revert : 변경 되돌리기
+    validations:
+      required: true
 
   - type: input
     id: due_date
@@ -94,20 +69,6 @@ body:
       placeholder: "2025-09-12"
     validations:
       required: false
-
-  - type: dropdown
-    id: due_in
-    attributes:
-      label: Due In
-      description: 선택 시 워크플로가 실제 날짜로 변환
-      options: ["Today", "+1d", "+3d", "Next Monday", "+1w", "+2w", "+1m"]
-
-  - type: dropdown
-    id: review_status
-    attributes:
-      label: Review Status
-      description: 코드/기획 리뷰 상태
-      options: [Pending, In Review, Approved, Changes Requested]
 
   - type: textarea
     id: details
